@@ -1,0 +1,618 @@
+/* ------------------------------------------------------------------
+   Carta — lenguaje visual de rack de vídeo.
+   Las pistas se leen como en una mesa de edición (V1/A1/S1) y el color
+   codifica una sola cosa: la decisión tomada sobre cada pista.
+   La paleta funcional viene de la carta de ajuste SMPTE.
+
+   Los valores viven una sola vez en --d-* (oscuro) y --l-* (claro).
+   Debajo solo se remapean, así que cambiar un color es tocar un sitio.
+------------------------------------------------------------------- */
+
+:root {
+  /* ---- paleta oscura: panel de equipo, no negro absoluto ---- */
+  --d-bg:       #171d21;
+  --d-panel:    #202930;
+  --d-panel-2:  #2a343b;
+  --d-rule:     #3d4950;
+  --d-rule-lo:  #2c363d;
+  --d-code:     #121719;
+  --d-ink:      #edf1f2;
+  --d-ink-2:    #b4bfc4;
+  --d-ink-3:    #8a979e;
+  --d-copy:     #57d68c;
+  --d-convert:  #ffc24b;
+  --d-extract:  #57cfe8;
+  --d-unsup:    #ff8a7a;
+  --d-chrome:   rgba(23, 29, 33, .72);   /* --d-bg translúcido */
+  --d-tint-ok:  rgba(87, 214, 140, .09);
+  --d-tint-slow: rgba(255, 194, 75, .09);
+
+  /* ---- paleta clara: papel, no cemento ---- */
+  --l-bg:       #f6f8f9;
+  --l-panel:    #ffffff;
+  --l-panel-2:  #eef1f3;
+  --l-rule:     #ccd4d8;
+  --l-rule-lo:  #e0e6e9;
+  --l-code:     #eef1f3;
+  --l-ink:      #0e1417;
+  --l-ink-2:    #3f4c53;
+  --l-ink-3:    #57646b;
+  --l-copy:     #0a7a45;
+  --l-convert:  #8a5300;
+  --l-extract:  #0b6a83;
+  --l-unsup:    #b02a1f;
+  --l-chrome:   rgba(246, 248, 249, .72); /* --l-bg translúcido */
+  --l-tint-ok:  rgba(10, 122, 69, .07);
+  --l-tint-slow: rgba(138, 83, 0, .07);
+
+  /* ---- activa ---- */
+  --bg: var(--d-bg);            --panel: var(--d-panel);
+  --panel-2: var(--d-panel-2);  --rule: var(--d-rule);
+  --rule-lo: var(--d-rule-lo);  --code: var(--d-code);
+  --ink: var(--d-ink);          --ink-2: var(--d-ink-2);
+  --ink-3: var(--d-ink-3);      --copy: var(--d-copy);
+  --convert: var(--d-convert);  --extract: var(--d-extract);
+  --unsup: var(--d-unsup);   --chrome: var(--d-chrome);
+  --tint-ok: var(--d-tint-ok);  --tint-slow: var(--d-tint-slow);
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --r: 6px;
+}
+
+/* Sigue al sistema salvo que se haya forzado el modo oscuro a mano */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: var(--l-bg);            --panel: var(--l-panel);
+    --panel-2: var(--l-panel-2);  --rule: var(--l-rule);
+    --rule-lo: var(--l-rule-lo);  --code: var(--l-code);
+    --ink: var(--l-ink);          --ink-2: var(--l-ink-2);
+    --ink-3: var(--l-ink-3);      --copy: var(--l-copy);
+    --convert: var(--l-convert);  --extract: var(--l-extract);
+    --unsup: var(--l-unsup);   --chrome: var(--l-chrome);
+  --tint-ok: var(--l-tint-ok);  --tint-slow: var(--l-tint-slow);
+    --tint-ok: var(--l-tint-ok);  --tint-slow: var(--l-tint-slow);
+  }
+}
+
+/* Elección manual: gana siempre sobre la del sistema */
+:root[data-theme="light"] {
+  --chrome: var(--l-chrome);
+  --bg: var(--l-bg);            --panel: var(--l-panel);
+  --panel-2: var(--l-panel-2);  --rule: var(--l-rule);
+  --rule-lo: var(--l-rule-lo);  --code: var(--l-code);
+  --ink: var(--l-ink);          --ink-2: var(--l-ink-2);
+  --ink-3: var(--l-ink-3);      --copy: var(--l-copy);
+  --convert: var(--l-convert);  --extract: var(--l-extract);
+  --unsup: var(--l-unsup);
+}
+
+* { box-sizing: border-box; }
+
+/* El documento no scrollea: si lo hiciera, macOS aplicaría el rebote elástico
+   y la ventana delataría que dentro hay una web. Scrollea un contenedor
+   interno con overscroll-behavior desactivado. */
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+:focus-visible {
+  outline: 2px solid var(--extract);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* La columna ocupa el alto libre para poder centrar la zona de soltar */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: none;
+}
+
+.rack {
+  /* Ocupa el alto del contenedor de scroll aunque el contenido sea corto: sin
+     alto no hay espacio libre y el `margin: auto` de .drop no centraría. */
+  min-height: 100%;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 22px 30px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------- cabecera */
+
+/* Ocupa exactamente la banda de la barra de título de macOS, que es transparente.
+   El selector queda a la altura del título y de los semáforos. */
+/* Ocupa la banda de 28 px de la barra de título, que es transparente.
+   Los semáforos de macOS son círculos de 12 px con 8 px de margen; los iconos
+   copian esa métrica, así que quedan en el mismo eje y con el mismo aire. */
+/* El alto real de la barra lo mide el JS en --dock-h */
+body.report .rack { padding-bottom: calc(var(--dock-h, 76px) + 18px); }
+
+/* Barra unificada al estilo de macOS reciente: 52 px, material translúcido y
+   separador solo cuando hay contenido detrás. Los semáforos se recolocan desde
+   tauri.conf.json para quedar centrados en ella, y el título lo pintamos aquí
+   (el nativo va oculto) porque macOS lo dejaría arriba, a 28 px. */
+.rack-head {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 52px;
+  padding-right: 15px;
+  background: var(--chrome);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .2s;
+}
+body.scrolled .rack-head { border-bottom-color: var(--rule-lo); }
+
+.wtitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.themebar { display: inline-flex; gap: 6px; }
+
+/* Caja de 22 px para poder pulsar cómodo; el glifo dibuja solo 12 px, así que
+   el margen que se percibe son los 8 px de los semáforos, no los 3 reales. */
+.tbtn {
+  width: 22px; height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.tbtn svg { width: 12px; height: 12px; }
+.tbtn:hover { color: var(--ink-2); }
+.tbtn[aria-pressed="true"] { color: var(--ink); }
+
+/* ---------------------------------------------------------- soltar archivo */
+
+/* Sin caja: la zona de soltar es la ventana entera, así que aquí solo queda el
+   texto, centrado por los márgenes automáticos. */
+.drop {
+  margin: auto;
+  text-align: center;
+}
+
+/* Al arrastrar encima se marca el borde de la ventana, no un recuadro interior */
+body.dragging::after {
+  content: "";
+  position: fixed;
+  inset: 5px;
+  border: 2px solid var(--extract);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.drop-title {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+.drop-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: var(--ink-2);
+  margin: 0 0 18px;
+}
+
+.link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--sans); font-size: 13px;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--rule);
+}
+.link:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ---------------------------------------------------------- rótulos de sección */
+
+.label-row { display: flex; align-items: center; gap: 13px; margin: 30px 0 13px; }
+.label-row:first-child { margin-top: 10px; }
+.label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.label-row hr { flex: 1; height: 0; border: 0; border-top: 1px solid var(--rule-lo); margin: 0; }
+
+/* ---------------------------------------------------------- pestañas */
+
+/* Resumen y pistas no comparten pantalla: el resumen responde a qué va a pasar,
+   las pistas son el respaldo para cuando algo no cuadra. */
+.tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
+  margin: 10px 0 16px;
+}
+.tab {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 0 7px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.tab:hover { color: var(--ink-2); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.tabs hr { flex: 1; height: 0; border: 0; border-top: 1px solid var(--rule-lo); margin: 0; }
+
+/* ---------------------------------------------------------- trayecto */
+
+/* La transformación es el sujeto, no el nombre del archivo: los contenedores
+   van grandes y el conector lleva colgada la estimación, como la duración de
+   un trayecto entre dos puntos. El color del cable es el veredicto de coste. */
+.plate {
+  background: var(--panel);
+  border: 1px solid var(--rule-lo);
+  border-radius: 10px;
+  padding: 22px 24px 0;
+  overflow: hidden;
+}
+
+.flow { display: flex; align-items: center; gap: 14px; }
+
+.big {
+  font-family: var(--mono);
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--ink-3);
+}
+.big.to { color: var(--ink); }
+
+.wire { flex: 1; height: 2px; border-radius: 1px; background: var(--copy); opacity: .55; }
+.plate.slow .wire { background: var(--convert); }
+
+.head { width: 17px; height: 17px; margin-left: -8px; color: var(--copy); }
+.plate.slow .head { color: var(--convert); }
+
+.est {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  padding: 3px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+  background: var(--bg);
+}
+
+.ends {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 24px;
+  margin-top: 14px;
+}
+.end { min-width: 0; }
+.end.to { text-align: right; }
+
+/* Una línea; el recorte por el centro lo hace el JS, que CSS solo corta al final */
+.end .name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.end .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+.hint { border-bottom: 1px dotted var(--rule); cursor: help; }
+
+/* Franja de cierre: el veredicto, tintado con su propio color */
+.verdict-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 20px -24px 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--rule-lo);
+  background: var(--tint-ok);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.plate.slow .verdict-bar { background: var(--tint-slow); }
+.verdict-bar b { color: var(--copy); font-weight: 600; }
+.plate.slow .verdict-bar b { color: var(--convert); }
+.verdict-bar b::after { content: " ·"; color: var(--ink-3); font-weight: 400; }
+
+/* ---------------------------------------------------------- pila de pistas */
+
+/* Cabecera con la misma rejilla que las filas, para que las columnas casen */
+.thead {
+  display: grid;
+  grid-template-columns: 3px 18px 36px 92px minmax(0, 1fr) auto;
+  gap: 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.thead span:last-child { text-align: right; }
+
+.tracks { list-style: none; margin: 0; padding: 0; }
+
+.track {
+  display: grid;
+  grid-template-columns: 3px 18px 36px 92px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 14px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--rule-lo);
+}
+.track:last-child { border-bottom: 0; }
+.track > * { min-width: 0; }
+
+/* El lomo de color es la decisión, leída de un vistazo por toda la columna */
+.spine { grid-row: 1 / span 2; align-self: stretch; border-radius: 2px; background: var(--ink-3); }
+.track--copy    .spine { background: var(--copy); }
+.track--convert .spine { background: var(--convert); }
+.track--extract .spine { background: var(--extract); }
+.track--unsupported .spine { background: var(--unsup); }
+
+.tkind {
+  align-self: center;
+  color: var(--ink-3);
+  line-height: 0;
+}
+.tkind svg { width: 15px; height: 15px; }
+
+.slug {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: .06em;
+}
+.codec { font-family: var(--mono); color: var(--ink); }
+.detail { font-size: 13px; color: var(--ink-2); }
+
+.verdict {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--ink-3);
+}
+.track--copy    .verdict { color: var(--copy); }
+.track--convert .verdict { color: var(--convert); }
+.track--extract .verdict { color: var(--extract); }
+.track--unsupported .verdict { color: var(--unsup); }
+
+/* Solo se rellena cuando la decisión no es obvia; vacía, la fila es de una línea */
+.reason {
+  grid-column: 5 / -1;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.reason:empty { display: none; }
+
+/* ---------------------------------------------------------- avisos */
+
+.warn {
+  display: flex;
+  gap: 11px;
+  background: var(--panel);
+  border: 1px solid var(--rule-lo);
+  border-left: 2px solid var(--convert);
+  border-radius: 0 var(--r) var(--r) 0;
+  padding: 11px 14px;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.warn::before {
+  content: "!";
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--convert);
+}
+
+/* ---------------------------------------------------------- ajustes */
+
+.settings { display: flex; flex-wrap: wrap; gap: 11px 26px; align-items: center; }
+
+.field { display: flex; align-items: center; gap: 10px; }
+.field > span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.settings select {
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.toggle { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.toggle input { accent-color: var(--extract); width: 15px; height: 15px; }
+
+/* ---------------------------------------------------------- botones */
+
+.actions { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
+
+button.go, button.ghost {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  padding: 12px 22px;
+  border-radius: var(--r);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+button.go { background: var(--ink); color: var(--bg); }
+/* Terminado: el botón cambia de acción, y el color lo dice antes que el texto */
+button.go.ok { background: var(--copy); color: var(--bg); }
+button.go:not(:disabled):hover { opacity: .86; }
+button.go:not(:disabled):active { opacity: .72; }
+
+button.ghost { background: transparent; color: var(--ink-2); border-color: var(--rule); }
+button.ghost:not(:disabled):hover { color: var(--ink); border-color: var(--ink-3); }
+button.ghost:not(:disabled):active { background: var(--panel-2); }
+
+button:disabled { opacity: .35; cursor: default; }
+
+/* ---------------------------------------------------------- acciones */
+
+/* Solo botones: el estado de la conversión vive en su pestaña, no aquí.
+   Retroceder a la izquierda, avanzar a la derecha: el sentido de lectura. */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: var(--chrome);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--rule-lo);
+}
+.dock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+}
+.dock-right { display: flex; gap: 10px; margin-left: auto; }
+
+/* ---------------------------------------------------------- conversión */
+
+.run-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  margin: 10px 0 9px;
+}
+.run-head .rate { color: var(--ink-2); letter-spacing: .1em; }
+
+.scrub { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+#fill { height: 100%; width: 0; background: var(--convert); transition: width .3s linear; }
+body.done #fill { background: var(--copy); }
+
+.timecode {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 8px;
+}
+.timecode b { color: var(--ink); font-weight: 500; }
+
+/* ---------------------------------------------------------- fallo */
+
+/* Solo para errores: el éxito lo cuenta el botón, no un cartel. */
+.failure {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: var(--panel);
+  border: 1px solid var(--rule-lo);
+  border-left: 2px solid var(--unsup);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------- registro */
+
+/* La ficha ocupa el alto libre para que el registro pueda estirarse: con un
+   alto fijo aparecía un segundo scroll dentro del de la página. */
+#report { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#panel-run { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+.log {
+  flex: 1;
+  min-height: 90px;
+  margin-top: 18px;
+  background: var(--code);
+  border: 1px solid var(--rule-lo);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-3);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---------------------------------------------------------- pantallas estrechas */
+
+@media (max-width: 560px) {
+  /* Sin ancho para columnas, la cabecera no casaría con las filas */
+  .thead { display: none; }
+  .track { grid-template-columns: 3px 18px 36px minmax(0, 1fr); gap: 0 10px; }
+  .track .detail { grid-column: 4 / -1; margin-top: 3px; }
+  .track .verdict { text-align: left; grid-column: 4 / -1; margin-top: 4px; }
+  .reason { grid-column: 4 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

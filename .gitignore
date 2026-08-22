@@ -1,0 +1,8 @@
+node_modules
+dist
+src-tauri/target
+
+# Binarios de ffmpeg: se obtienen con scripts/fetch-ffmpeg.sh.
+# No se versionan porque pesan 60 MB y porque el build actual es nonfree,
+# lo que impide redistribuirlo. Ver THIRD-PARTY.md.
+src-tauri/binaries/
