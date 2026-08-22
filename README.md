@@ -1,257 +1,200 @@
 # Carta
 
-App de escritorio (Tauri v2) que deja vídeos descargados listos para reproducir
-directamente en la tele desde un USB o un NAS.
+A desktop app (Tauri v2) that gets downloaded videos ready to play straight off
+a USB stick or a NAS on your TV.
 
-Arrastras un `.mkv`, la app inspecciona cada pista y decide lo mínimo que hay que
-tocar. En el caso normal el vídeo no se recodifica: se remuxea a MP4 en segundos.
+Drop in an `.mkv`, the app inspects every track and works out the least it has
+to touch. In the normal case the video is never re-encoded: it is remuxed into
+MP4 in seconds.
 
-## Uso
+## Usage
 
 ```
 npm install
-./scripts/fetch-ffmpeg.sh   # descarga los sidecars, no van en el repo
-npm run tauri dev           # desarrollo
-npm run tauri build         # genera el .app en src-tauri/target/release/bundle/macos
+./scripts/fetch-ffmpeg.sh   # downloads the sidecars, which are not in the repo
+npm run tauri dev           # development
+npm run tauri build         # builds the .app into src-tauri/target/release/bundle/macos
 ```
 
-Lee [THIRD-PARTY.md](THIRD-PARTY.md) antes de distribuir nada: el ffmpeg que
-descarga ese script **no es redistribuible**.
+Read [THIRD-PARTY.md](THIRD-PARTY.md) before distributing anything: the ffmpeg
+that script downloads **is not redistributable**.
 
-Rust hace falta para compilar. Si no lo tienes:
+Building needs Rust. If you do not have it:
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ```
 
-Está instalado con `--no-modify-path`, así que para usar `cargo` a mano en una
-terminal nueva: `source "$HOME/.cargo/env"` (o añádelo a `~/.zshrc`).
+## What it decides, and why
 
-## Qué decide y por qué
+A conservative profile: it aims at the lowest common denominator of TVs with a
+USB port.
 
-Perfil conservador: apunta al mínimo común denominador de TVs con lector USB.
-
-| Pista | Condición | Acción |
+| Track | Condition | Action |
 |---|---|---|
-| Vídeo | H.264, `yuv420p`, perfil hasta High, nivel ≤ 4.1 | `copy` — sin recodificar |
-| Vídeo | Hi10P, 4:2:2/4:4:4, nivel > 4.1, o no-H.264 | recodifica a H.264 High 8 bits |
-| Vídeo | segunda pista o carátula incrustada | descarta (MP4 solo admite una) |
+| Video | H.264, `yuv420p`, profile up to High, level ≤ 4.1 | `copy` — no re-encoding |
+| Video | Hi10P, 4:2:2/4:4:4, level > 4.1, or not H.264 | re-encode to H.264 High 8-bit |
+| Video | second track or embedded cover art | dropped (an MP4 takes only one) |
 | Audio | AAC, AC3, MP3 | `copy` |
-| Audio | DTS, TrueHD, FLAC, PCM, Opus, E-AC3… con ≥ 6 canales | AC3 640k 5.1 |
-| Audio | ídem con ≤ 2 canales | AAC 192k estéreo |
-| Subtítulo | texto (SRT, ASS, SSA, WebVTT, mov_text) | extrae a `.srt` externo, siempre |
-| Subtítulo | imagen (PGS, VOBSUB, DVB) | descarta y avisa — haría falta OCR |
-| Contenedor | cualquiera | MP4 con `+faststart` |
+| Audio | DTS, TrueHD, FLAC, PCM, Opus, E-AC3… with ≥ 6 channels | AC3 640k 5.1 |
+| Audio | same with ≤ 2 channels | AAC 192k stereo |
+| Subtitle | text (SRT, ASS, SSA, WebVTT, mov_text) | extracted to an external `.srt`, always |
+| Subtitle | image (PGS, VOBSUB, DVB) | dropped with a warning — it would need OCR |
+| Container | any | MP4 with `+faststart` |
 
-Todas las pistas de audio se conservan, con su idioma. Las de vídeo secundarias no.
+Every audio track is kept, with its language. Secondary video tracks are not.
 
-E-AC3 se transcodifica a AC3 a propósito: lo soportan casi todas las TVs de 2015
-en adelante, pero no todas, y el coste de reencodear solo el audio es bajo.
+E-AC3 is transcoded to AC3 on purpose: nearly every TV from 2015 onwards
+supports it, but not every one, and re-encoding audio alone is cheap.
 
-### Subtítulos
+### Subtitles
 
-Salen como archivo aparte porque es lo que más TVs cargan solas. El nombre se
-deriva del **MP4 de salida**, no del original — si no coincide, la TV no lo ve:
+They come out as separate files because that is what most TVs load on their own.
+The name derives from the **output MP4**, not the original — if it does not
+match, the TV will not find it:
 
-- Una sola pista → `Peli.tv.srt`
-- Varias → `Peli.tv.spa.srt`, `Peli.tv.eng.srt`
+- A single track → `Movie.tv.srt`
+- Several → `Movie.tv.spa.srt`, `Movie.tv.eng.srt`
 
-Al convertir de ASS a SRT, ffmpeg arrastra el estilo como `<font size="71">`, que
-muchas TVs pintan literal o con letra enorme. `strip_styling()` lo quita y deja
-solo `<i>`, `<b>`, `<u>`. También limpia el posicionamiento ASS (`{\an8}`).
+Converting ASS to SRT, ffmpeg carries the styling across as `<font size="71">`,
+which many TVs render literally or at enormous size. `strip_styling()` removes
+it and keeps only `<i>`, `<b>`, `<u>`. It also clears ASS positioning (`{\an8}`).
 
-## ffmpeg va dentro de la app
+### Size limits
 
-`src-tauri/binaries/` lleva `ffmpeg` y `ffprobe` estáticos para `aarch64-apple-darwin`.
-Tauri los declara en `bundle.externalBin` y los mete en el `.app`, así que la app
-no depende de que la máquina destino tenga nada instalado.
+FAT32 cannot hold a file of 4 GiB or more. The **Cap output at 4 GB** checkbox
+computes the bitrate that does fit — `(limit × 8 × margin ÷ duration) − audio` —
+and re-encodes to it. That trades away the fast path, so it only kicks in when
+the file would not fit otherwise.
 
-Solo enlazan frameworks del sistema — verificable con `otool -L`. El ffmpeg de
-Homebrew **no** vale para esto: apunta a dylibs de `/opt/homebrew`.
+Formatting the drive as exFAT removes the limit without touching the video, and
+is the better answer whenever the TV can read it.
 
-Para añadir Intel, hacen falta los binarios `-x86_64-apple-darwin` al lado.
+The audio bitrate is estimated high on purpose: Matroska rarely declares it, and
+overestimating leaves the result smaller, which is the side to err on.
 
-> **Licencia.** Los binarios actuales vienen de `ffmpeg-static` y están compilados
-> con `--enable-gpl --enable-nonfree`. Sirven para uso personal, pero **no son
-> redistribuibles**. Si la app se publica, hay que sustituirlos por un build propio
-> LGPL (sin `libx264`; la recodificación tiraría solo de `h264_videotoolbox`) o
-> cumplir la GPL. Basta reemplazar los archivos de `src-tauri/binaries/`.
+## Design
 
-Pesan ~60 MB juntos, así que valora si quieren estar en git o descargarse en un
-paso de `postinstall`.
+The window has tabs and never shows two at once. **Summary** answers "what is
+going to happen", **Tracks** is the backup for when something looks off, and
+**Conversion** only appears once the process starts: progress bar, timecode,
+speed, result and log live there. The footer holds buttons and nothing else.
 
-## Diseño
+The summary reads as **origin → destination**, laid out horizontally with a
+chevron for direction. Below it, the cost verdict: **Direct copy** in green when
+streams are copied as they are, or **Needs re-encoding** in amber when the video
+is not compatible. That is the only thing that changes the order of magnitude of
+the work — seconds against minutes or hours — so it is the only thing given
+weight; the per-track breakdown is one tab away. The estimate sits next to the
+verdict because it is the same statement in numbers.
 
-La ventana tiene pestañas y nunca muestra dos a la vez. **Resumen** responde a
-"qué va a pasar", **Pistas** es el respaldo para cuando algo no cuadra, y
-**Conversión** solo aparece al arrancar el proceso: ahí van barra, timecode,
-velocidad, resultado y registro. El pie se queda con los botones y nada más.
+File names are trimmed to one line with an ellipsis **in the middle**, so the
+extension survives; CSS can only cut at the end, so that trimming is measured
+and applied by the JS.
 
-El resumen es **origen → destino** en horizontal, con un chevrón marcando la
-dirección. Debajo, el veredicto de coste: **Copia directa** en verde cuando los
-flujos se copian tal cual, o **Requiere recodificar** en ámbar cuando el vídeo
-no es compatible. Es lo único que cambia el orden de magnitud del trabajo —
-segundos frente a minutos u horas—, así que es lo único que se destaca; el
-desglose por pista está a una pestaña de distancia. La estimación acompaña al
-veredicto porque es su versión numérica.
-
-Los nombres de archivo se recortan a una línea con puntos suspensivos **en el
-centro**, para no perder la extensión; CSS solo sabe cortar por el final, así
-que ese recorte lo mide y lo hace el JS.
-
-La pestaña de pistas es una tabla con cabecera —pista, códec, detalle, acción—
-que comparte rejilla con las filas para que las columnas casen.
-
-En la lista de pistas, **el color codifica una sola cosa: la decisión.** Verde
-copiar, ámbar convertir, cian extraer, rojo sin soporte. Los iconos de tipo de
-pista (`film`, `audio-lines`, `captions`, de lucide) van en gris neutro para no
-competir con él. Cada pista se identifica como en una mesa de edición: `V1`,
+In the track list, **colour encodes exactly one thing: the decision.** Green
+copy, amber convert, cyan extract, red unsupported. The track-type icons
+(`film`, `audio-lines`, `captions`, from lucide) stay neutral grey so they do
+not compete with it. Each track is identified the way an editor would: `V1`,
 `A1`, `A2`, `S1`.
 
-El icono de la app es `tv-minimal` de [lucide](https://lucide.dev) con las
-barras SMPTE dentro de la pantalla. La app se llama **Carta** por la carta de
-ajuste: la imagen con la que se calibraban los televisores, y de donde sale la
-paleta de los cuatro colores de decisión.
+The app icon is lucide's `tv-minimal` with SMPTE bars inside the screen. The app
+is called **Carta** after *carta de ajuste*, Spanish for the test card — the
+image TVs used to be calibrated with, and where the four decision colours come
+from.
 
-### Cromo
+### Chrome
 
-Barra superior de 52 px al estilo de macOS reciente: material translúcido
-(`backdrop-filter`), separador que solo aparece al hacer scroll, y el título
-dibujado por la app —el nativo va oculto porque macOS lo dejaría a 28 px, fuera
-del eje—. Los semáforos se recolocan con `trafficLightPosition`.
+A 52 px top bar in the style of recent macOS: translucent material
+(`backdrop-filter`), a separator that only appears once you scroll, and the
+title drawn by the app — the native one is hidden because macOS would leave it
+at 28 px, off the axis. The traffic lights are repositioned with
+`trafficLightPosition`.
 
-Ojo con ese valor: `tao` fija el alto del contenedor a `altura_del_botón + y` y
-conserva el `origin.y` de los botones, así que la distancia real al borde
-superior es `y − 8`. Para centrarlos en la barra de 52 hay que pedir `y: 28`.
+Careful with that value: `tao` sets the container height to
+`button_height + y` and preserves the buttons' `origin.y`, so the real distance
+from the top edge is `y − 8`. Centring them in a 52 px bar means asking for
+`y: 28`.
 
-Abajo, una barra de transporte fija con el mismo material: retroceder a la
-izquierda, avanzar a la derecha, y en medio la estimación antes de empezar o el
-progreso mientras corre. El hueco que le reserva la columna se mide con un
-`ResizeObserver` en `--dock-h`, porque en ventanas estrechas envuelve y crece.
+At the bottom, a fixed action bar in the same material: back on the left,
+forward on the right. The room the column reserves for it is measured with a
+`ResizeObserver` into `--dock-h`, because it wraps and grows in narrow windows.
 
-El documento no scrollea (`html, body { overflow: hidden }`); lo hace un
-contenedor interno con `overscroll-behavior: none`. Si scrollease el documento,
-macOS aplicaría el rebote elástico y la ventana delataría que dentro hay una web.
+The document does not scroll (`html, body { overflow: hidden }`); an inner
+container does, with `overscroll-behavior: none`. If the document scrolled,
+macOS would apply its rubber-band bounce and the window would give away that
+there is a web view inside.
 
-### Estimación
+### Estimates
 
-`Estimate` en `lib.rs` calcula segundos para los tres caminos posibles (copiar,
-VideoToolbox, x264) y la interfaz elige según el plan y el codificador elegido.
-Las constantes son aproximadas y están comentadas junto a su origen: `REMUX_MB_S`
-sale de medir un remux real, y las de codificación de cifras típicas a 1080p
-escaladas por resolución. El ETA de verdad lo da ffmpeg en cuanto arranca.
+`Estimate` in `lib.rs` computes seconds for the three possible paths (copy,
+VideoToolbox, x264) and the interface picks by plan and chosen encoder. The
+constants are approximate and documented next to where they came from:
+`REMUX_MB_S` from timing a real remux, and the encoding ones measured on this
+machine over 60 s of real 1080p footage — 7.7x realtime for VideoToolbox, 2.2x
+for libx264. They are set slightly lower than measured, because complex content
+runs slower and overestimating is the safe error. The real ETA comes from ffmpeg
+as soon as it starts.
 
-### Claro y oscuro
+### Light and dark
 
-Sigue la apariencia de macOS. Selector de tres posiciones arriba a la derecha
-—claro, oscuro, según el sistema— con iconos de lucide; la elección se guarda en
-`localStorage`. "Según el sistema" no fija ningún atributo y deja mandar a
-`prefers-color-scheme`.
+Follows the macOS appearance. A three-way switch at the top right — light, dark,
+match system — with lucide icons; the choice is stored in `localStorage`. "Match
+system" sets no attribute and lets `prefers-color-scheme` decide.
 
-Los valores viven una sola vez, en `--d-*` (oscuro) y `--l-*` (claro); los
-bloques de abajo solo remapean. Para cambiar un color se toca un sitio.
+Values live once, in `--d-*` (dark) and `--l-*` (light); the blocks below only
+remap them. Changing a colour means touching one place.
 
-El fondo oscuro es `#171d21`, no negro. El claro es `#f6f8f9`, casi papel: con
-un fondo tan claro las tarjetas blancas apenas contrastan, así que la estructura
-la llevan los bordes (`--rule-lo`), no el relleno.
+The dark background is `#171d21`, not black. The light one is `#f6f8f9`, close
+to paper: against a background that light, white cards barely contrast, so
+structure is carried by borders (`--rule-lo`) rather than fills.
 
-Contraste medido sobre el fondo de cada tema: tinta 15.0:1 / 9.1:1 / 5.7:1 en
-oscuro y 17.4:1 / 8.3:1 / 5.7:1 en claro; los cuatro colores de decisión no bajan
-de 5.1:1. Todo pasa WCAG AA, que es el suelo a mantener si tocas la paleta.
+Contrast measured against each theme's background: ink at 15.0:1 / 9.1:1 / 5.7:1
+in dark and 17.4:1 / 8.3:1 / 5.7:1 in light; the four decision colours never
+drop below 5.1:1. Everything clears WCAG AA, which is the floor to hold if you
+touch the palette.
 
-## ffmpeg va dentro de la app
+## ffmpeg ships inside the app
 
-`src-tauri/binaries/` lleva `ffmpeg` y `ffprobe` estáticos para `aarch64-apple-darwin`.
-Tauri los declara en `bundle.externalBin` y los mete en el `.app`, así que la app
-no depende de que la máquina destino tenga nada instalado.
+`src-tauri/binaries/` holds static `ffmpeg` and `ffprobe` for
+`aarch64-apple-darwin`. Tauri declares them in `bundle.externalBin` and packs
+them into the `.app`, so the target machine needs nothing installed.
 
-Solo enlazan frameworks del sistema — verificable con `otool -L`. El ffmpeg de
-Homebrew **no** vale para esto: apunta a dylibs de `/opt/homebrew`.
+They link only against system frameworks — verifiable with `otool -L`. Homebrew's
+ffmpeg will **not** do: it points at dylibs under `/opt/homebrew`.
 
-Para añadir Intel, hacen falta los binarios `-x86_64-apple-darwin` al lado.
+Adding Intel support means placing the `-x86_64-apple-darwin` binaries alongside.
 
-> **Licencia.** Los binarios actuales vienen de `ffmpeg-static` y están compilados
-> con `--enable-gpl --enable-nonfree`. Sirven para uso personal, pero **no son
-> redistribuibles**. Si la app se publica, hay que sustituirlos por un build propio
-> LGPL (sin `libx264`; la recodificación tiraría solo de `h264_videotoolbox`) o
-> cumplir la GPL. Basta reemplazar los archivos de `src-tauri/binaries/`.
+> **Licence.** The current binaries come from `ffmpeg-static` and are built with
+> `--enable-gpl --enable-nonfree`. They work for personal use but are **not
+> redistributable**. See [THIRD-PARTY.md](THIRD-PARTY.md).
 
-Pesan ~60 MB juntos, así que valora si quieren estar en git o descargarse en un
-paso de `postinstall`.
+## Why there is no .dmg
 
-## Diseño
+A `.dmg` only adds the "drag to Applications" gesture when distributing to other
+people. For your own use the `.app` is enough and the build is shorter. If it
+ever needs shipping, add `"dmg"` back to `bundle.targets`.
 
-La interfaz habla el idioma del material: un MKV es una pila de pistas, así que
-se listan como en una mesa de edición (`V1`, `A1`, `A2`, `S1`) y cada fila lleva
-un lomo de color a la izquierda.
-
-**El color codifica una sola cosa: la decisión.** Verde copiar, ámbar convertir,
-cian extraer, rojo sin soporte. No se usa para nada más, así que la columna de
-lomos se lee de un vistazo. La paleta sale de la carta de ajuste SMPTE, que es
-literalmente con lo que se calibraban los televisores.
-
-La zona de soltar lleva una franja fina con las barras SMPTE apagadas; al
-arrastrar un archivo encima crece y satura. Va abajo del todo y nunca se cruza
-con el texto, para no comprometer el contraste.
-
-El icono es `tv-minimal` de [lucide](https://lucide.dev), con las barras SMPTE
-dentro de la pantalla. El mismo glifo va en la cabecera de la app.
-
-La app se llama **Carta** por la carta de ajuste: la imagen con la que se
-calibraban los televisores, y de donde sale toda la paleta. La cabecera lo
-deletrea entero para que el nombre no quede como una palabra suelta.
-
-Cada pista lleva además su icono de tipo (`video`, `audio-lines`, `captions`,
-también de lucide) en gris neutro, para no competir con el color de decisión.
-
-La franja SMPTE va fija al pie de la ventana, decorativa. No hay texto encima,
-así que va a plena saturación sin coste de contraste.
-
-La app no tiene cabecera propia: el nombre lo pone la barra de título de macOS.
-Repetirlo dentro era redundante.
-
-### Claro y oscuro
-
-Sigue la apariencia de macOS. Selector de tres posiciones arriba a la derecha
-—claro, oscuro, según el sistema— con iconos de lucide; la elección se guarda en
-`localStorage`. "Según el sistema" no fija ningún atributo y deja mandar a
-`prefers-color-scheme`.
-
-Los valores viven una sola vez, en `--d-*` (oscuro) y `--l-*` (claro); los
-bloques de abajo solo remapean. Para cambiar un color se toca un sitio.
-
-El fondo oscuro es `#171d21`, no negro. El claro es `#f6f8f9`, casi papel: con
-un fondo tan claro las tarjetas blancas apenas contrastan, así que la estructura
-la llevan los bordes (`--rule-lo`), no el relleno.
-
-Contraste medido sobre el fondo de cada tema: tinta 15.0:1 / 9.1:1 / 5.7:1 en
-oscuro y 17.4:1 / 8.3:1 / 5.7:1 en claro; los cuatro colores de decisión no bajan
-de 5.1:1. Todo pasa WCAG AA, que es el suelo a mantener si tocas la paleta.
-
-## Estructura
+## Layout
 
 ```
-src/main.js          UI: drag & drop, resumen, pestañas, progreso
-src/tracks.js        pintado de la lista de pistas y nombres de códec
-src-tauri/src/lib.rs analiza, decide, construye los args de ffmpeg y lanza
+src/main.js          UI: drag & drop, summary, tabs, progress
+src/tracks.js        track list rendering and codec names
+src-tauri/src/lib.rs analyses, decides, builds the ffmpeg args and runs them
 ```
 
-`lib.rs` está en tres bloques: las constantes de compatibilidad al principio
-(`OK_PIX`, `OK_PROFILES`, `MAX_LEVEL`, `OK_AUDIO`, `TEXT_SUBS`) — que es donde se
-toca si quieres afinar el perfil a una tele concreta —, `build_plan()` con la
-decisión por pista, y `run_ffmpeg()`, que traduce `-progress pipe:1` en eventos
-para la barra de progreso.
+`lib.rs` comes in three blocks: the compatibility constants up top (`OK_PIX`,
+`OK_PROFILES`, `MAX_LEVEL`, `OK_AUDIO`, `TEXT_SUBS`) — which is what you touch to
+tune the profile for a particular TV — then `build_plan()` with the per-track
+decision, and `run_ffmpeg()`, which turns `-progress pipe:1` into events for the
+progress bar.
 
-`analyze` y `convert` llaman los dos a ffprobe. Es intencionado: el plan se
-recalcula al convertir en vez de confiar en lo que mande el frontend.
+`analyze` and `convert` both call ffprobe. That is deliberate: the plan is
+recomputed at conversion time rather than trusting whatever the frontend sends.
 
-## Por qué no hay .dmg
+## Output
 
-El `.dmg` solo aporta el gesto de "arrastra a Aplicaciones" al distribuir a
-terceros. Para uso propio basta el `.app`, y la build es más corta. Si algún día
-hay que repartirla, se vuelve a añadir `"dmg"` a `bundle.targets`.
-
-## Salida
-
-Junto al original, `nombre.tv.mp4`. Nunca pisa un archivo existente: si ya está,
-usa `nombre.tv (2).mp4`.
+Next to the original, as `name.tv.mp4`. It never overwrites an existing file: if
+one is there already, it uses `name.tv (2).mp4`. A trailing `.tv` in the source
+name is stripped first, so converting the app's own output does not produce
+`name.tv.tv.mp4`.

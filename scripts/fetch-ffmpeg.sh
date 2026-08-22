@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Descarga ffmpeg y ffprobe estáticos para arm64 y los deja con el nombre que
-# espera Tauri para los sidecars (bundle.externalBin en tauri.conf.json).
+# Downloads static arm64 ffmpeg and ffprobe and names them the way Tauri expects
+# its sidecars (bundle.externalBin in tauri.conf.json).
 #
-# AVISO: el build que trae ffmpeg-static está compilado con --enable-gpl y
-# --enable-nonfree, así que el binario NO es redistribuible. Sirve para
-# compilar y usar la app en tu propia máquina. Para publicar binarios hay que
-# sustituirlo por un build LGPL propio (--disable-gpl --disable-nonfree, sin
-# libx264, dejando la codificación en h264_videotoolbox). Ver THIRD-PARTY.md.
+# WARNING: the build shipped by ffmpeg-static is compiled with --enable-gpl and
+# --enable-nonfree, so the binary is NOT redistributable. It is fine for
+# building and running the app on your own machine. To publish binaries you must
+# replace it with your own LGPL build (--disable-gpl --disable-nonfree, without
+# libx264, leaving encoding to h264_videotoolbox). See THIRD-PARTY.md.
 set -euo pipefail
 
 TRIPLE="aarch64-apple-darwin"
@@ -23,5 +23,5 @@ cp node_modules/ffmpeg-static/ffmpeg "$DEST/ffmpeg-$TRIPLE"
 cp node_modules/@ffprobe-installer/darwin-arm64/ffprobe "$DEST/ffprobe-$TRIPLE"
 chmod +x "$DEST"/ffmpeg-* "$DEST"/ffprobe-*
 
-echo "Listo:"
+echo "Done:"
 ls -lh "$DEST"

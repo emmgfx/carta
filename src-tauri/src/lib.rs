@@ -6,11 +6,11 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
-// ---------------------------------------------------------------- reglas TV
+// ---------------------------------------------------------------- TV rules
 
-/// Formatos de píxel que cualquier decodificador de TV acepta.
+/// Pixel formats any TV decoder will accept.
 const OK_PIX: [&str; 2] = ["yuv420p", "yuvj420p"];
-/// Perfiles H.264 seguros. Hi10P / 4:2:2 / 4:4:4 quedan fuera a propósito.
+/// Safe H.264 profiles. Hi10P / 4:2:2 / 4:4:4 are deliberately left out.
 const OK_PROFILES: [&str; 5] = [
     "baseline",
     "constrained baseline",
@@ -18,14 +18,14 @@ const OK_PROFILES: [&str; 5] = [
     "high",
     "constrained high",
 ];
-/// Nivel H.264 máximo garantizado en TVs antiguas (4.1 = 1080p30).
+/// Highest H.264 level guaranteed on older TVs (4.1 = 1080p30).
 const MAX_LEVEL: i64 = 41;
-/// Códecs de audio que van directos al MP4 sin tocar.
+/// Audio codecs that go straight into the MP4 untouched.
 const OK_AUDIO: [&str; 3] = ["aac", "ac3", "mp3"];
-/// Subtítulos basados en texto: convertibles a .srt.
+/// Text-based subtitles: convertible to .srt.
 const TEXT_SUBS: [&str; 6] = ["subrip", "ass", "ssa", "mov_text", "webvtt", "text"];
 
-// ---------------------------------------------------------------- modelos
+// ---------------------------------------------------------------- models
 
 #[derive(Serialize, Clone)]
 pub struct StreamInfo {
@@ -37,13 +37,13 @@ pub struct StreamInfo {
     title: String,
     action: String,
     reason: String,
-    /// A qué se convierte, para poder dibujar el trayecto sin parsear `reason`.
+    /// What it converts to, so the route can be drawn without parsing `reason`.
     target: String,
 }
 
-/// Estimación aproximada en segundos para cada camino posible.
-/// El ETA de verdad lo da ffmpeg en cuanto arranca; esto solo sirve para saber
-/// antes de pulsar si esto son segundos o media tarde.
+/// Rough estimate in seconds for each possible path.
+/// The real ETA comes from ffmpeg as soon as it starts; this only tells you,
+/// before pressing anything, whether you are looking at seconds or an evening.
 #[derive(Serialize, Clone)]
 pub struct Estimate {
     copy: f64,
@@ -51,25 +51,25 @@ pub struct Estimate {
     x264: f64,
 }
 
-/// Copia de flujos: manda el disco. Medido remuxeando 550 MB en ~2 s; se deja
-/// margen porque una unidad externa o en red baja bastante de ahí.
+/// Stream copy: the disk decides. Measured remuxing 550 MB in ~2 s; kept lower
+/// because an external or network drive falls well short of that.
 const REMUX_MB_S: f64 = 180.0;
-/// Veces el tiempo real codificando 1080p, por codificador. Medido en esta
-/// máquina sobre 60 s de 1080p real: 7,7× y 2,2×. Se dejan algo por debajo
-/// porque el contenido complejo baja el ritmo y conviene errar por exceso.
+/// Times realtime when encoding 1080p, per encoder. Measured on this machine
+/// over 60 s of real 1080p footage: 7.7x and 2.2x. Kept slightly lower because
+/// complex content slows things down and overestimating is the safe error.
 const VT_SPEED: f64 = 6.5;
 const X264_SPEED: f64 = 2.0;
-/// Transcodificar una pista de audio va muy por encima del tiempo real.
+/// Transcoding an audio track runs far above realtime.
 const AUDIO_SPEED: f64 = 60.0;
 
-/// FAT32 no admite archivos de 4 GiB o más, por diseño del formato.
+/// FAT32 cannot hold files of 4 GiB or more, by design of the format.
 const FAT32_LIMIT: f64 = 4.0 * 1024.0 * 1024.0 * 1024.0 - 1.0;
-/// Margen para cabeceras y desajustes del control de tasa. Con un límite duro
-/// como el de FAT32, pasarse es fallar: mejor perder un 7 % de tasa.
+/// Headroom for container overhead and rate-control drift. Against a hard limit
+/// like FAT32, overshooting is failing: better to give up 7% of the bitrate.
 const SIZE_MARGIN: f64 = 0.93;
-/// Matroska rara vez declara la tasa del audio y leerla exige demuxear el
-/// archivo entero. Se estima por canal, y a propósito por encima: sobrestimar
-/// deja el resultado más pequeño, que es el lado por el que hay que fallar.
+/// Matroska rarely declares the audio bitrate, and reading it means demuxing the
+/// whole file. It is estimated per channel, deliberately high: overestimating
+/// makes the result smaller, which is the side to err on.
 const AUDIO_BITS_PER_CH: f64 = 80_000.0;
 
 #[derive(Serialize, Clone)]
@@ -83,7 +83,7 @@ pub struct Analysis {
     size: u64,
     streams: Vec<StreamInfo>,
     needs_video_encode: bool,
-    /// Tamaño previsto del MP4 resultante, en bytes.
+    /// Expected size of the resulting MP4, in bytes.
     output_size: f64,
     estimate: Estimate,
     warnings: Vec<String>,
@@ -95,7 +95,7 @@ struct Progress {
     phase: String,
     speed: String,
     eta: f64,
-    /// Segundos ya procesados del vídeo, para pintar el timecode.
+    /// Seconds of video already processed, for the timecode readout.
     seconds: f64,
     total: f64,
 }
@@ -104,9 +104,9 @@ struct VideoPlan {
     index: u32,
     encode: bool,
     bitrate_k: u32,
-    /// Tasa del vídeo de origen, para prever cuánto ocupará si se copia.
+    /// Source video bitrate, used to predict the size if it is copied.
     src_bits: f64,
-    /// `bitrate_k` es un objetivo a respetar, no una referencia orientativa.
+    /// `bitrate_k` is a target to respect, not a rough reference.
     capped: bool,
 }
 
@@ -116,7 +116,7 @@ struct AudioPlan {
     codec: &'static str,
     bitrate: &'static str,
     channels: u32,
-    /// Tasa que tendrá esta pista en la salida.
+    /// Bitrate this track will have in the output.
     bits: f64,
 }
 
@@ -141,7 +141,7 @@ async fn ffprobe(app: &AppHandle, path: &str) -> Result<Value, String> {
     let out = app
         .shell()
         .sidecar("ffprobe")
-        .map_err(|e| format!("ffprobe no disponible: {e}"))?
+        .map_err(|e| format!("ffprobe unavailable: {e}"))?
         .args([
             "-v",
             "quiet",
@@ -153,15 +153,15 @@ async fn ffprobe(app: &AppHandle, path: &str) -> Result<Value, String> {
         ])
         .output()
         .await
-        .map_err(|e| format!("ffprobe no arrancó: {e}"))?;
+        .map_err(|e| format!("ffprobe did not start: {e}"))?;
 
     if !out.status.success() {
         return Err(format!(
-            "ffprobe falló: {}",
+            "ffprobe failed: {}",
             String::from_utf8_lossy(&out.stderr).trim()
         ));
     }
-    serde_json::from_slice(&out.stdout).map_err(|e| format!("JSON de ffprobe ilegible: {e}"))
+    serde_json::from_slice(&out.stdout).map_err(|e| format!("unreadable ffprobe JSON: {e}"))
 }
 
 fn tag<'a>(s: &'a Value, key: &str) -> &'a str {
@@ -179,13 +179,13 @@ fn num(v: &Value, key: &str) -> Option<f64> {
     }
 }
 
-/// Quita un `.tv` final del nombre: convertir algo que ya salió de aquí no debe
-/// dar `peli.tv.tv.mp4`.
+/// Strips a trailing `.tv`: converting something this app already produced must
+/// not yield `movie.tv.tv.mp4`.
 fn base_name(stem: &str) -> &str {
     stem.strip_suffix(".tv").unwrap_or(stem)
 }
 
-/// Tamaño en unidades legibles, para los mensajes.
+/// Size in readable units, for messages.
 fn human_size(bytes: f64) -> String {
     let gb = bytes / 1024.0 / 1024.0 / 1024.0;
     if gb >= 1.0 {
@@ -195,7 +195,7 @@ fn human_size(bytes: f64) -> String {
     }
 }
 
-/// Nombre de salida junto al original, sin pisar nada que ya exista.
+/// Output name next to the original, never overwriting anything that exists.
 fn output_for(input: &Path) -> PathBuf {
     let raw = input.file_stem().and_then(|s| s.to_str()).unwrap_or("video");
     let stem = base_name(raw);
@@ -209,11 +209,11 @@ fn output_for(input: &Path) -> PathBuf {
     candidate
 }
 
-// ---------------------------------------------------------------- decisión
+// ---------------------------------------------------------------- decisions
 
 fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
     let input = Path::new(path);
-    let format = probe.get("format").ok_or("el archivo no trae metadatos")?;
+    let format = probe.get("format").ok_or("the file carries no metadata")?;
     let duration = num(format, "duration").unwrap_or(0.0);
     let size = num(format, "size").unwrap_or(0.0) as u64;
     let container = format
@@ -254,7 +254,7 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
         let title = tag(s, "title").to_string();
 
         match kind.as_str() {
-            // ---- vídeo: solo la primera pista ----
+            // ---- video: first track only ----
             "video" if video.is_none() => {
                 let w = num(s, "width").unwrap_or(0.0) as u32;
                 let h = num(s, "height").unwrap_or(0.0) as u32;
@@ -275,17 +275,17 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
 
                 let mut problems: Vec<String> = Vec::new();
                 if codec != "h264" {
-                    problems.push(format!("códec {codec}, la TV espera H.264"));
+                    problems.push(format!("{codec} codec, the TV expects H.264"));
                 }
                 if !pix.is_empty() && !OK_PIX.contains(&pix.as_str()) {
-                    problems.push(format!("{pix} (10 bits o croma alto) no se decodifica"));
+                    problems.push(format!("{pix} (10-bit or high chroma) will not decode"));
                 }
                 if !profile.is_empty() && !OK_PROFILES.contains(&profile.as_str()) {
-                    problems.push(format!("perfil {profile} fuera de rango"));
+                    problems.push(format!("{profile} profile out of range"));
                 }
                 if level > MAX_LEVEL {
                     problems.push(format!(
-                        "nivel {}.{} supera el 4.1 soportado",
+                        "level {}.{} is above the supported 4.1",
                         level / 10,
                         level % 10
                     ));
@@ -293,8 +293,8 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
 
                 let encode = !problems.is_empty();
                 // Bitrate objetivo si toca recodificar: el de origen, acotado.
-                // Sin dato aquí se deja en cero y se deduce luego, restando el
-                // audio al total del archivo.
+                // With no figure here it stays at zero and is derived later, by
+                // subtracting the audio from the file total.
                 let src_k = num(s, "bit_rate").map(|b| b / 1000.0).unwrap_or(0.0);
                 let bitrate_k = if src_k > 0.0 {
                     src_k.clamp(1500.0, 14000.0) as u32
@@ -318,11 +318,11 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                     lang,
                     title,
                     action: if encode { "convert" } else { "copy" }.into(),
-                    target: if encode { "H.264 High · 8 bits".into() } else { String::new() },
+                    target: if encode { "H.264 High · 8-bit".into() } else { String::new() },
                     reason: if encode {
-                        format!("{} → H.264 High 8 bits", problems.join("; "))
+                        format!("{} → H.264 High 8-bit", problems.join("; "))
                     } else {
-                        "compatible, se copia sin recodificar".into()
+                        "compatible, copied without re-encoding".into()
                     },
                 });
 
@@ -335,17 +335,17 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                 });
             }
             "video" => {
-                // Portadas incrustadas y pistas de vídeo extra: fuera.
+                // Embedded cover art and extra video tracks: dropped.
                 infos.push(StreamInfo {
                     index,
                     kind,
                     codec,
-                    detail: "pista de vídeo secundaria / carátula".into(),
+                    detail: "secondary video track / cover art".into(),
                     lang,
                     title,
                     action: "drop".into(),
                     target: String::new(),
-                    reason: "el MP4 solo lleva una pista de vídeo".into(),
+                    reason: "an MP4 carries a single video track".into(),
                 });
             }
 
@@ -367,8 +367,8 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                         codec: "copy",
                         bitrate: "",
                         channels: ch,
-                        // Matroska no siempre declara la tasa; 64 kbps por canal
-                        // es una aproximación razonable para preverla.
+                        // Matroska does not always declare the bitrate; per-channel
+                        // is a reasonable way to predict it.
                         bits: num(s, "bit_rate").unwrap_or(ch as f64 * AUDIO_BITS_PER_CH),
                     }
                 } else if ch >= 6 {
@@ -413,10 +413,10 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                         format!("{} {} · {} canales", plan.codec, plan.bitrate, plan.channels)
                     },
                     reason: if plan.copy {
-                        "la TV lo reproduce tal cual".into()
+                        "the TV plays it as it is".into()
                     } else {
                         format!(
-                            "{codec} no es compatible → {} {} {} canales",
+                            "{codec} is not compatible → {} {} {} channels",
                             plan.codec, plan.bitrate, plan.channels
                         )
                     },
@@ -424,28 +424,28 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                 audios.push(plan);
             }
 
-            // ---- subtítulos ----
+            // ---- subtitles ----
             "subtitle" => {
                 let is_text = TEXT_SUBS.contains(&codec.as_str());
                 infos.push(StreamInfo {
                     index,
                     kind,
                     codec: codec.clone(),
-                    // El icono y el identificador (S1, S2…) ya dicen que es un
-                    // subtítulo; repetirlo aquí solo alarga la fila.
+                    // The icon and the identifier (S1, S2…) already say it is a
+                    // subtitle; repeating it here only lengthens the row.
                     detail: if is_text {
                         "texto".into()
                     } else {
-                        "imagen (bitmap)".into()
+                        "image (bitmap)".into()
                     },
                     lang: lang.clone(),
                     title,
                     action: if is_text { "extract" } else { "unsupported" }.into(),
                     target: if is_text { ".srt".into() } else { String::new() },
                     reason: if is_text {
-                        "sale como .srt junto al vídeo".into()
+                        "comes out as .srt next to the video".into()
                     } else {
-                        "el bitmap no se puede pasar a .srt sin OCR".into()
+                        "a bitmap cannot become .srt without OCR".into()
                     },
                 });
                 if is_text {
@@ -454,27 +454,28 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                         lang: if lang.is_empty() { "und".into() } else { lang },
                     });
                 }
-                // Sin aviso para los bitmap: el trayecto y la propia fila ya lo dicen.
+                // No warning for bitmaps: the summary and the row already say it.
             }
 
             _ => {}
         }
     }
 
-    let mut video = video.ok_or("el archivo no tiene pista de vídeo")?;
+    let mut video = video.ok_or("the file has no video track")?;
 
-    // ¿Cuánto va a ocupar? Si no cabe en el límite, la única salida es bajar la
-    // tasa del vídeo, y eso obliga a recodificar aunque el códec fuese válido.
+    // How big will it be? If it does not fit the limit, the only way out is
+    // lowering the video bitrate, and that forces a re-encode even when the
+    // codec was perfectly valid.
     let audio_bits: f64 = audios.iter().map(|a| a.bits).sum();
 
-    // Si ffprobe no dio la tasa del vídeo, sale de restar el audio al total del
-    // archivo. Es bastante más fiable que aplicar un factor fijo.
+    // If ffprobe gave no video bitrate, it comes from subtracting the audio from
+    // the file total. Considerably more reliable than a fixed fudge factor.
     if video.src_bits <= 0.0 && duration > 0.0 && size > 0 {
         let total = size as f64 * 8.0 / duration;
         video.src_bits = (total - audio_bits).max(200_000.0);
     }
 
-    // Con la tasa de origen ya resuelta, la de recodificación se afina.
+    // With the source bitrate resolved, the re-encoding target can be refined.
     if video.encode {
         video.bitrate_k = (video.src_bits / 1000.0).clamp(1500.0, 14000.0) as u32;
     }
@@ -509,26 +510,26 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
         let floor = if pixels > 1_000_000.0 { 1800 } else { 900 };
         if kbps < floor {
             warnings.push(format!(
-                "Para que quepa en {} hay que bajar el vídeo a {kbps} kbps, muy poco para esta \
-                 resolución: se verá con bloques. Considera un pendrive en exFAT, que no tiene \
-                 el límite de 4 GB.",
+                "Fitting into {} means dropping the video to {kbps} kbps, far too little \
+                 for this resolution: expect visible blocking. Consider an exFAT drive, \
+                 which has no 4 GB limit.",
                 human_size(limit)
             ));
         }
     }
 
     if audios.is_empty() {
-        warnings.push("El archivo no tiene audio. Saldrá un MP4 mudo.".into());
+        warnings.push("The file has no audio. The MP4 will be silent.".into());
     }
     if video.encode {
         warnings.push(
-            "Hay que recodificar el vídeo: tardará bastante más que un remux y \
-             habrá pérdida de calidad."
+            "The video has to be re-encoded: this takes considerably longer than a \
+             remux and loses some quality."
                 .into(),
         );
     }
 
-    // Lo que cuesta igual por cualquier camino: audio y subtítulos.
+    // What costs the same on every path: audio and subtitles.
     let converted_audio = audios.iter().filter(|a| !a.copy).count() as f64;
     let fixed = duration / AUDIO_SPEED * converted_audio + subs.len() as f64;
     let scale = pixels / (1920.0 * 1080.0);
@@ -572,8 +573,8 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
 
 // ---------------------------------------------------------------- ffmpeg
 
-/// Lanza ffmpeg y traduce su `-progress` en eventos para la UI.
-/// `base` y `span` sitúan esta pasada dentro del progreso global 0–100.
+/// Runs ffmpeg and turns its `-progress` output into events for the UI.
+/// `base` and `span` place this pass inside the overall 0-100 progress.
 async fn run_ffmpeg(
     app: &AppHandle,
     state: &ConvState,
@@ -588,10 +589,10 @@ async fn run_ffmpeg(
     let (mut rx, child) = app
         .shell()
         .sidecar("ffmpeg")
-        .map_err(|e| format!("ffmpeg no disponible: {e}"))?
+        .map_err(|e| format!("ffmpeg unavailable: {e}"))?
         .args(args)
         .spawn()
-        .map_err(|e| format!("ffmpeg no arrancó: {e}"))?;
+        .map_err(|e| format!("ffmpeg did not start: {e}"))?;
 
     {
         let mut guard = state.0.lock().unwrap();
@@ -658,8 +659,8 @@ async fn run_ffmpeg(
 
     match code {
         Some(0) => Ok(()),
-        Some(c) => Err(format!("ffmpeg salió con código {c}. {}", tail.join(" · "))),
-        None => Err("conversión cancelada".into()),
+        Some(c) => Err(format!("ffmpeg exited with code {c}. {}", tail.join(" · "))),
+        None => Err("conversion cancelled".into()),
     }
 }
 
@@ -671,7 +672,7 @@ fn video_args(plan: &VideoPlan, encoder: &str) -> Vec<String> {
     if encoder == "x264" {
         a.extend(["libx264", "-preset", "medium", "-profile:v", "high", "-level", "4.1"].map(String::from));
         if plan.capped {
-            // Con un tamaño que respetar no vale CRF: hay que fijar la tasa.
+            // With a size to respect CRF will not do: the bitrate must be pinned.
             a.push("-b:v".into());
             a.push(format!("{}k", plan.bitrate_k));
             a.push("-maxrate".into());
@@ -686,7 +687,7 @@ fn video_args(plan: &VideoPlan, encoder: &str) -> Vec<String> {
         a.extend(["h264_videotoolbox", "-profile:v", "high"].map(String::from));
         a.push("-b:v".into());
         a.push(format!("{}k", plan.bitrate_k));
-        // Sin techo, VBR se pasa de la tasa media y el archivo excede el límite.
+        // Without a ceiling, VBR overshoots the average and the file busts the cap.
         a.push("-maxrate".into());
         a.push(format!("{}k", plan.bitrate_k * 3 / 2));
         a.push("-bufsize".into());
@@ -696,8 +697,8 @@ fn video_args(plan: &VideoPlan, encoder: &str) -> Vec<String> {
     a
 }
 
-/// ffmpeg arrastra el estilo del ASS al SRT como `<font size="71">`, y muchas TVs
-/// lo pintan literal o con letra gigante. Deja solo cursiva/negrita/subrayado.
+/// ffmpeg carries ASS styling into SRT as `<font size="71">`, and many TVs draw
+/// it literally or at huge size. Only italic/bold/underline survive.
 fn strip_styling(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut out = String::with_capacity(text.len());
@@ -721,7 +722,7 @@ fn strip_styling(text: &str) -> String {
                 out.push('<');
                 i += 1;
             }
-            // Códigos de posición de ASS del tipo {\an8}
+            // ASS positioning codes such as {\an8}
             '{' if chars.get(i + 1) == Some(&'\\') => {
                 if let Some(end) = chars[i..].iter().position(|&c| c == '}') {
                     i += end + 1;
@@ -741,12 +742,12 @@ fn strip_styling(text: &str) -> String {
 
 fn clean_srt(target: &Path) -> Result<(), String> {
     let raw = std::fs::read_to_string(target)
-        .map_err(|e| format!("no se pudo leer el .srt generado: {e}"))?;
+        .map_err(|e| format!("could not read the generated .srt: {e}"))?;
     std::fs::write(target, strip_styling(&raw))
-        .map_err(|e| format!("no se pudo reescribir el .srt: {e}"))
+        .map_err(|e| format!("could not rewrite the .srt: {e}"))
 }
 
-// ---------------------------------------------------------------- comandos
+// ---------------------------------------------------------------- commands
 
 #[tauri::command]
 async fn analyze(app: AppHandle, path: String, fat32: bool) -> Result<Analysis, String> {
@@ -754,7 +755,7 @@ async fn analyze(app: AppHandle, path: String, fat32: bool) -> Result<Analysis, 
     Ok(build_plan(&probe, &path, limit_of(fat32))?.analysis)
 }
 
-/// El único límite que ofrecemos es el de FAT32; el resto de formatos no lo tienen.
+/// FAT32 is the only limit offered; other filesystems do not have one.
 fn limit_of(fat32: bool) -> f64 {
     if fat32 { FAT32_LIMIT } else { 0.0 }
 }
@@ -772,12 +773,12 @@ async fn convert(
     let total = plan.analysis.duration;
     let out = plan.analysis.output_path.clone();
 
-    // Los .srt se extraen primero: son rápidos y así se ven ya en el Finder.
+    // Subtitles come out first: they are quick, so they show up in Finder early.
     let do_subs = !plan.subs.is_empty();
     let sub_span = if do_subs { 0.08 } else { 0.0 };
 
     if do_subs {
-        // El .srt tiene que llamarse igual que el MP4 o la TV no lo carga sola.
+        // The .srt has to match the MP4's name or the TV will not pick it up.
         let out_path = PathBuf::from(&out);
         let stem = out_path
             .file_stem()
@@ -820,7 +821,7 @@ async fn convert(
                 &state,
                 args,
                 total,
-                "Extrayendo subtítulos",
+                "Extracting subtitles",
                 n as f64 * each * 100.0,
                 each,
             )
@@ -829,7 +830,7 @@ async fn convert(
         }
     }
 
-    // Pasada principal: un solo MP4 con vídeo + todos los audios.
+    // Main pass: a single MP4 with the video and every audio track.
     let mut args: Vec<String> = vec![
         "-hide_banner".into(),
         "-nostdin".into(),
@@ -879,9 +880,9 @@ async fn convert(
     args.push(out.clone());
 
     let phase = if plan.video.encode {
-        "Recodificando vídeo"
+        "Re-encoding video"
     } else {
-        "Remuxeando"
+        "Remuxing"
     };
     run_ffmpeg(
         &app,
@@ -917,7 +918,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![analyze, convert, cancel])
         .run(tauri::generate_context!())
-        .expect("error arrancando Carta");
+        .expect("failed to start Carta");
 }
 
 #[cfg(test)]
@@ -925,33 +926,30 @@ mod tests {
     use super::{base_name, strip_styling};
 
     #[test]
-    fn no_duplica_el_sufijo_tv() {
+    fn does_not_duplicate_the_tv_suffix() {
         assert_eq!(base_name("Toy Story 5 (2026).tv"), "Toy Story 5 (2026)");
     }
 
     #[test]
-    fn respeta_los_nombres_normales() {
+    fn leaves_ordinary_names_alone() {
         assert_eq!(base_name("Toy Story 5 (2026)"), "Toy Story 5 (2026)");
         assert_eq!(base_name("serie.1x01.1080p"), "serie.1x01.1080p");
     }
 
     #[test]
-    fn quita_font_pero_conserva_cursiva() {
-        let entrada = "<font face=\"sans-serif\" size=\"71\">- ¿No querrás <i>llegar tarde</i>?</font>";
-        assert_eq!(
-            strip_styling(entrada),
-            "- ¿No querrás <i>llegar tarde</i>?"
-        );
+    fn strips_font_tags_but_keeps_italics() {
+        let input = "<font face=\"sans-serif\" size=\"71\">- You'll be <i>late</i>, you know?</font>";
+        assert_eq!(strip_styling(input), "- You'll be <i>late</i>, you know?");
     }
 
     #[test]
-    fn quita_posicionamiento_ass() {
-        assert_eq!(strip_styling("{\\an8}Cartel de la calle"), "Cartel de la calle");
+    fn strips_ass_positioning() {
+        assert_eq!(strip_styling("{\\an8}Street sign"), "Street sign");
     }
 
     #[test]
-    fn no_toca_texto_normal_con_signos() {
-        let entrada = "5 < 7 y el resultado > 0";
-        assert_eq!(strip_styling(entrada), entrada);
+    fn leaves_plain_text_with_angle_brackets_alone() {
+        let input = "5 < 7 and the result > 0";
+        assert_eq!(strip_styling(input), input);
     }
 }

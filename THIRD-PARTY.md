@@ -1,14 +1,14 @@
-# Componentes de terceros
+# Third-party components
 
-## ffmpeg y ffprobe
+## ffmpeg and ffprobe
 
-La app los embebe como *sidecars* y los invoca **como procesos aparte**: no
-enlaza sus librerías. Los binarios no se versionan en este repositorio; se
-obtienen con `scripts/fetch-ffmpeg.sh`.
+The app embeds them as *sidecars* and runs them **as separate processes**: it
+does not link their libraries. The binaries are not versioned in this
+repository; fetch them with `scripts/fetch-ffmpeg.sh`.
 
-> **El build que descarga ese script no es redistribuible.** Viene de
-> [`ffmpeg-static`](https://www.npmjs.com/package/ffmpeg-static) y está
-> compilado con `--enable-gpl --enable-nonfree`. El propio binario lo dice:
+> **The build that script downloads is not redistributable.** It comes from
+> [`ffmpeg-static`](https://www.npmjs.com/package/ffmpeg-static) and is compiled
+> with `--enable-gpl --enable-nonfree`. The binary says so itself:
 >
 > ```
 > $ ffmpeg -L
@@ -16,29 +16,28 @@ obtienen con `scripts/fetch-ffmpeg.sh`.
 > Therefore it is not legally redistributable.
 > ```
 >
-> Sirve para compilar y usar la app en tu máquina. **No publiques un `.app` o
-> un `.dmg` que lo contenga.**
+> It is fine for building and running the app on your own machine. **Do not
+> publish an `.app` or a `.dmg` that contains it.**
 
-Para distribuir binarios hay que sustituirlo por un build propio en modo LGPL:
+To distribute binaries, replace it with your own LGPL build:
 
-- `--disable-gpl --disable-nonfree`, sin `libx264` ni `libx265`
-- con `--enable-videotoolbox` y `--enable-audiotoolbox`
+- `--disable-gpl --disable-nonfree`, without `libx264` or `libx265`
+- with `--enable-videotoolbox` and `--enable-audiotoolbox`
 
-Consecuencia funcional: desaparece la opción «libx264 — mejor calidad» y la
-recodificación queda en `h264_videotoolbox`, que es el camino verificado y no
-pierde ninguna función de la app.
+Functional consequence: the "libx264 — better quality" option disappears and
+re-encoding falls to `h264_videotoolbox`, which is the verified path and costs
+the app no functionality.
 
-Al distribuir un build LGPL hay que acompañarlo del texto de la licencia, la
-versión exacta usada y el script de compilación, para que cualquiera pueda
-reconstruir ese mismo binario.
+When shipping an LGPL build, include the licence text, the exact version used
+and the build script, so anyone can reconstruct that same binary.
 
 ffmpeg: <https://ffmpeg.org> · <https://ffmpeg.org/legal.html>
 
-## Iconos
+## Icons
 
-[lucide](https://lucide.dev), licencia ISC. Se usan los trazados de `tv-minimal`
-(icono de la app y de la ventana), `film`, `audio-lines`, `captions`,
-`chevron-right`, `sun`, `moon` y `monitor`, incrustados como SVG en el código.
+[lucide](https://lucide.dev), ISC licence. The app uses the paths for
+`tv-minimal` (app and window icon), `film`, `audio-lines`, `captions`,
+`chevron-right`, `sun`, `moon` and `monitor`, inlined as SVG in the source.
 
 ```
 ISC License
@@ -60,7 +59,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-## Códecs y patentes
+## Codecs and patents
 
-La app genera H.264 (mediante VideoToolbox de Apple) y AC-3. No usa las marcas
-Dolby ni DTS en ningún punto de la interfaz ni en los metadatos de salida.
+The app produces H.264 (through Apple's VideoToolbox) and AC-3. It does not use
+the Dolby or DTS trademarks anywhere in the interface or in the output metadata.

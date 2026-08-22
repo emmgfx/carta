@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,8 +9,8 @@
   <body>
     <header class="rack-head" data-tauri-drag-region>
       <span class="wtitle">Carta</span>
-        <div class="themebar" role="group" aria-label="Apariencia">
-          <button class="tbtn" data-choice="light" title="Claro" aria-label="Claro">
+        <div class="themebar" role="group" aria-label="Appearance">
+          <button class="tbtn" data-choice="light" title="Light" aria-label="Light">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" />
@@ -19,13 +19,13 @@
               <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
             </svg>
           </button>
-          <button class="tbtn" data-choice="dark" title="Oscuro" aria-label="Oscuro">
+          <button class="tbtn" data-choice="dark" title="Dark" aria-label="Dark">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />
             </svg>
           </button>
-          <button class="tbtn" data-choice="auto" title="Según el sistema" aria-label="Según el sistema">
+          <button class="tbtn" data-choice="auto" title="Match system" aria-label="Match system">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect width="20" height="14" x="2" y="3" rx="2" />
@@ -38,16 +38,16 @@
     <div class="rack">
 
       <section id="drop" class="drop">
-        <p class="drop-title">Suelta un vídeo</p>
+        <p class="drop-title">Drop a video</p>
         <p class="drop-sub">mkv · mp4 · avi · mov · ts</p>
-        <button id="pick" class="link">o búscalo en el disco</button>
+        <button id="pick" class="link">or pick one from disk</button>
       </section>
 
       <section id="report" class="hidden">
         <div class="tabs" role="tablist">
-          <button class="tab" data-panel="summary" role="tab" aria-selected="true">Resumen</button>
-          <button class="tab" data-panel="tracks" role="tab" aria-selected="false">Pistas</button>
-          <button class="tab hidden" data-panel="run" role="tab" aria-selected="false" id="tabRun">Conversión</button>
+          <button class="tab" data-panel="summary" role="tab" aria-selected="true">Summary</button>
+          <button class="tab" data-panel="tracks" role="tab" aria-selected="false">Tracks</button>
+          <button class="tab hidden" data-panel="run" role="tab" aria-selected="false" id="tabRun">Conversion</button>
           <hr />
         </div>
 
@@ -84,13 +84,13 @@
           <div class="settings">
             <label class="toggle">
               <input type="checkbox" id="fat32" />
-              Limitar salida a 4 GB (FAT32)
+              Cap output at 4 GB (FAT32)
             </label>
             <label class="field hidden" id="encoderField">
-              <span>Recodificar con</span>
+              <span>Re-encode with</span>
               <select id="encoder">
-                <option value="videotoolbox">VideoToolbox — rápido</option>
-                <option value="x264">libx264 — mejor calidad</option>
+                <option value="videotoolbox">VideoToolbox</option>
+                <option value="x264">libx264</option>
               </select>
             </label>
           </div>
@@ -99,7 +99,7 @@
         <div id="panel-tracks" class="hidden">
           <div class="thead" aria-hidden="true">
             <span></span><span></span>
-            <span>Pista</span><span>Códec</span><span>Detalle</span><span>Acción</span>
+            <span>Track</span><span>Codec</span><span>Details</span><span>Action</span>
           </div>
           <ul class="tracks" id="tracks"></ul>
         </div>
@@ -121,10 +121,10 @@
 
     <div id="dock" class="dock hidden">
       <div class="dock-row">
-        <button id="reset" class="ghost">Cambiar de vídeo</button>
+        <button id="reset" class="ghost">Change video</button>
         <div class="dock-right">
-          <button id="cancel" class="ghost hidden">Cancelar</button>
-          <button id="convert" class="go">Convertir</button>
+          <button id="cancel" class="ghost hidden">Cancel</button>
+          <button id="convert" class="go">Convert</button>
         </div>
       </div>
     </div>

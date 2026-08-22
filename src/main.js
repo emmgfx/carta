@@ -12,9 +12,9 @@ let analysis = null;
 let running = false;
 let output = null;
 
-// ---------- apariencia ----------
+// ---------- appearance ----------
 
-/** "auto" no fija atributo: manda prefers-color-scheme. */
+/** "auto" sets no attribute, so prefers-color-scheme decides. */
 function applyTheme(choice) {
   if (choice === "auto") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", choice);
@@ -31,7 +31,7 @@ for (const b of document.querySelectorAll(".tbtn")) {
 }
 applyTheme(localStorage.getItem("theme") ?? "auto");
 
-// ---------- formato ----------
+// ---------- formatting ----------
 
 const fmtSize = (b) => {
   const u = ["B", "KB", "MB", "GB", "TB"];
@@ -40,7 +40,7 @@ const fmtSize = (b) => {
   return `${b.toFixed(i ? 1 : 0)} ${u[i]}`;
 };
 
-/** Timecode hh:mm:ss, como en una mesa de edición. */
+/** Timecode hh:mm:ss, as on an editing timeline. */
 const fmtTC = (s) => {
   if (!isFinite(s) || s < 0) s = 0;
   const h = Math.floor(s / 3600);
@@ -73,12 +73,12 @@ const logLine = (t) => {
 const isVideoFile = (p) => VIDEO_EXT.includes(p.split(".").pop().toLowerCase());
 
 
-// ---------- análisis ----------
+// ---------- analysis ----------
 
 async function analyze(path) {
   if (running) return;
   if (!isVideoFile(path)) {
-    logLine(`Ignorado, no es un vídeo: ${path}`);
+    logLine(`Skipped, not a video: ${path}`);
     return;
   }
 
@@ -93,14 +93,14 @@ async function analyze(path) {
     analysis = await invoke("analyze", { path, fat32: $("fat32").checked });
   } catch (e) {
     analysis = null;
-    logLine(`No se pudo analizar: ${e}`);
+    logLine(`Could not analyse: ${e}`);
     return;
   }
   render();
 }
 
-/* El nombre va a una línea. Como CSS solo sabe cortar por el final, y ahí es
-   donde está la extensión, el recorte se hace a mano por el centro. */
+/* The name gets one line. CSS can only truncate at the end, which is exactly
+   where the extension lives, so the trimming is done by hand in the middle. */
 const measurer = document.createElement("canvas").getContext("2d");
 const trimmed = [];
 
@@ -135,7 +135,7 @@ function fitName(el) {
 
 new ResizeObserver(() => trimmed.forEach(fitName)).observe(document.documentElement);
 
-/** Nombre a una línea, recortado por el centro para no perder la extensión. */
+/** One-line name, trimmed in the middle so the extension survives. */
 function setName(el, text) {
   el.dataset.full = text;
   el.title = text;
@@ -150,39 +150,39 @@ function renderRoute(a) {
   $("metaFrom").textContent = `${fmtShort(a.duration)} · ${fmtSize(a.size)}`;
 
   setName($("nameTo"), a.output_name);
-  // Se deja el nombre real de la opción de ffmpeg; el hover lo explica.
+  // Keeps ffmpeg's own option name; the hover explains what it means.
   $("metaTo").textContent = `${fmtShort(a.duration)} · ≈ ${fmtSize(a.output_size)} · `;
   const hint = document.createElement("span");
   hint.className = "hint";
   hint.textContent = "faststart";
-  hint.title = "El índice del MP4 va al principio del archivo, no al final, "
-    + "así el reproductor empieza sin tener que leerlo entero. Se nota al "
-    + "reproducir desde un USB lento o por red.";
+  hint.title = "The MP4 index sits at the start of the file instead of the end, "
+    + "so a player can begin without reading the whole thing first. It shows "
+    + "when playing from a slow USB stick or over the network.";
   $("metaTo").append(hint);
 
   showSpeed(a);
   trimmed.forEach(fitName);
 }
 
-/* Lo único que cambia el orden de magnitud del trabajo es si hay que volver a
-   codificar el vídeo. Copiar los flujos son segundos; recodificar, minutos u
-   horas. El resto (audio, subtítulos) es despreciable en comparación. */
+/* The only thing that changes the order of magnitude of the work is whether the
+   video has to be re-encoded. Copying streams takes seconds; re-encoding takes
+   minutes or hours. Audio and subtitles are negligible next to that. */
 function showSpeed(a) {
   const slow = a.needs_video_encode;
   $("plate").classList.toggle("slow", slow);
   $("speed").innerHTML = slow
-    ? "<b>Requiere recodificar</b><span>el vídeo no es compatible y hay que volver a codificarlo</span>"
-    : "<b>Copia directa</b><span>los flujos se copian sin recodificar, sin pérdida de calidad</span>";
+    ? "<b>Needs re-encoding</b><span>the video is not compatible and has to be encoded again</span>"
+    : "<b>Direct copy</b><span>streams are copied as they are, with no quality loss</span>";
 
   const e = a.estimate;
-  // Cada opción dice lo que cuesta: "rápido" no informa tanto como un número.
+  // Each option states its cost: a number says more than the word "fast".
   const opts = $("encoder").options;
   opts[0].textContent = `VideoToolbox — ≈ ${fmtRough(e.videotoolbox)}`;
-  opts[1].textContent = `libx264 — ≈ ${fmtRough(e.x264)}, mejor calidad`;
+  opts[1].textContent = `libx264 — ≈ ${fmtRough(e.x264)}, better quality`;
 
   const secs = !slow ? e.copy : ($("encoder").value === "x264" ? e.x264 : e.videotoolbox);
   $("est").textContent = `≈ ${fmtRough(secs)}`;
-  $("est").title = "Estimación. El tiempo real depende del disco y del contenido.";
+  $("est").title = "Estimate. Real time depends on the disk and on the content.";
 }
 
 function render() {
@@ -206,7 +206,7 @@ function render() {
 
   renderTracks($("tracks"), a.streams);
 
-  // El codificador solo se elige si de verdad se va a recodificar.
+  // The encoder only matters when something is actually going to be encoded.
   $("encoderField").classList.toggle("hidden", !a.needs_video_encode);
 
   $("convert").disabled = false;
@@ -214,7 +214,7 @@ function render() {
   $("reset").classList.remove("hidden");
 }
 
-// ---------- conversión ----------
+// ---------- conversion ----------
 
 async function convert() {
   if (!analysis || running) return;
@@ -227,7 +227,7 @@ async function convert() {
   $("reset").classList.add("hidden");
   $("tabRun").classList.remove("hidden");
   showPanel("run");
-  $("phase").textContent = "Arrancando";
+  $("phase").textContent = "Starting";
   $("rate").textContent = "";
   $("tcNow").textContent = "00:00:00";
   $("tcEnd").textContent = fmtTC(analysis.duration);
@@ -249,24 +249,24 @@ async function convert() {
   }
 }
 
-/* Al terminar, el botón principal deja de ofrecer convertir y pasa a llevarte al
-   archivo. Es el siguiente paso natural, y evita un cartel de confirmación que
-   solo repite lo que la barra al 100 % ya dice. */
+/* Once it finishes, the primary button stops offering to convert and takes you
+   to the file instead. That is the natural next step, and it avoids a banner
+   that would only repeat what a progress bar at 100% already says. */
 function showResult(ok, msg) {
   if (ok) {
     output = msg;
     document.body.classList.add("done");
     $("fill").style.width = "100%";
-    $("phase").textContent = "Completado";
+    $("phase").textContent = "Done";
     $("rate").textContent = "";
     $("tcNow").textContent = $("tcEnd").textContent;
 
     const btn = $("convert");
-    btn.textContent = "Ver en Finder";
+    btn.textContent = "Show in Finder";
     btn.classList.add("ok");
     btn.title = msg;
   } else {
-    $("phase").textContent = "Detenido";
+    $("phase").textContent = "Stopped";
     const el = $("result");
     el.className = "failure";
     el.textContent = msg;
@@ -276,7 +276,7 @@ function showResult(ok, msg) {
 function resetAction() {
   output = null;
   const btn = $("convert");
-  btn.textContent = "Convertir";
+  btn.textContent = "Convert";
   btn.classList.remove("ok");
   btn.removeAttribute("title");
   $("result").className = "hidden";
@@ -296,24 +296,25 @@ function reset() {
   $("log").textContent = "";
 }
 
-// El separador de la barra solo aparece cuando hay contenido pasando por debajo.
+// The toolbar separator only shows once content is scrolling underneath it.
 $("scroll").addEventListener("scroll", (e) => {
   document.body.classList.toggle("scrolled", e.target.scrollTop > 2);
 }, { passive: true });
 
-// ---------- hueco del dock ----------
+// ---------- action bar clearance ----------
 
-/* La barra cambia de alto según envuelva o no, así que el hueco que le deja la
-   columna se mide en vez de fijarlo a ojo. */
+/* The bar changes height depending on whether it wraps, so the room the column
+   leaves for it is measured rather than guessed. */
 const dockSpace = () =>
   document.documentElement.style.setProperty("--dock-h", `${$("dock").offsetHeight}px`);
 
 new ResizeObserver(dockSpace).observe($("dock"));
 
-// ---------- pestañas ----------
+// ---------- tabs ----------
 
-/* Resumen y pistas no se ven a la vez: el resumen responde a "qué va a pasar" y
-   las pistas son el respaldo, que solo se mira cuando algo no cuadra. */
+/* Summary and tracks are never shown together: the summary answers "what is
+   going to happen", and the track list is the backup you check when something
+   looks off. */
 function showPanel(name) {
   for (const tab of document.querySelectorAll(".tab")) {
     const on = tab.dataset.panel === name;
@@ -326,22 +327,22 @@ for (const tab of document.querySelectorAll(".tab")) {
   tab.onclick = () => showPanel(tab.dataset.panel);
 }
 
-// ---------- eventos ----------
+// ---------- wiring ----------
 
 $("pick").onclick = async () => {
-  const sel = await open({ multiple: false, filters: [{ name: "Vídeo", extensions: VIDEO_EXT }] });
+  const sel = await open({ multiple: false, filters: [{ name: "Video", extensions: VIDEO_EXT }] });
   if (sel) analyze(sel);
 };
 
 $("encoder").onchange = () => showSpeed(analysis);
-/* El límite cambia el plan entero —puede forzar recodificación—, así que no
-   basta con repintar: hay que volver a pedirlo. */
+/* The cap changes the whole plan (it can force a re-encode), so repainting is
+   not enough: the analysis has to be asked for again. */
 $("fat32").onchange = () => { if (analysis) analyze(analysis.path); };
 $("convert").onclick = () => (output ? revealItemInDir(output) : convert());
 $("reset").onclick = reset;
 $("cancel").onclick = () => invoke("cancel").catch(() => {});
 
-/* Se suelta en cualquier punto de la ventana, también con una ficha ya abierta. */
+/* Dropping works anywhere in the window, including with a file already open. */
 getCurrentWebview().onDragDropEvent((e) => {
   const kind = e.payload.type;
   document.body.classList.toggle("dragging", kind === "over");

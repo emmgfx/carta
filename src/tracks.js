@@ -1,8 +1,7 @@
-/* Pintado de la lista de pistas. Vive aparte porque lo usan las dos ventanas:
-   la principal no lo usa ya, pero la de detalle sí, y el criterio de nombres y
-   iconos tiene que ser el mismo en ambas. */
+/* Rendering of the track list. It lives on its own because the naming and icon
+   rules have to stay consistent wherever tracks are shown. */
 
-/** ffmpeg usa identificadores largos; la gente conoce los nombres cortos. */
+/** ffmpeg uses long identifiers; people know the short names. */
 const CODEC_NAME = {
   hdmv_pgs_subtitle: "pgs",
   dvd_subtitle: "vobsub",
@@ -15,7 +14,7 @@ const CODEC_NAME = {
 
 export const codecName = (c) => CODEC_NAME[c] ?? c;
 
-/* Iconos de lucide. Van en gris neutro: el color ya significa la decisión. */
+/* lucide icons. Neutral grey on purpose: colour already means the decision. */
 const KIND_ICON = {
   video: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/>'
        + '<path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
@@ -25,17 +24,17 @@ const KIND_ICON = {
           + '<path d="M7 15h4M15 15h2M7 11h2M13 11h4"/>',
 };
 
-const KIND_NAME = { video: "Vídeo", audio: "Audio", subtitle: "Subtítulo" };
+const KIND_NAME = { video: "Video", audio: "Audio", subtitle: "Subtitle" };
 
 const VERDICT = {
-  copy: "copiar",
-  convert: "convertir",
-  extract: "extraer",
-  drop: "descartar",
-  unsupported: "sin soporte",
+  copy: "copy",
+  convert: "convert",
+  extract: "extract",
+  drop: "drop",
+  unsupported: "unsupported",
 };
 
-/** V1 / A1 / A2 / S1: identifica la pista como lo haría un editor. */
+/** V1 / A1 / A2 / S1: names a track the way an editor would. */
 function slugger() {
   const seen = { video: 0, audio: 0, subtitle: 0 };
   const letter = { video: "V", audio: "A", subtitle: "S" };
@@ -70,19 +69,12 @@ export function renderTracks(list, streams) {
     li.querySelector(".detail").textContent = bits.join(" · ");
     li.querySelector(".verdict").textContent = VERDICT[s.action] ?? s.action;
 
-    // El resumen ya cuenta qué pasa con cada pista; aquí solo el porqué cuando
-    // no es evidente. El resto queda en el tooltip.
+    // The summary already says what happens to each track; here we only add the
+    // why when it is not obvious. The rest stays in the tooltip.
     const needsReason = s.action === "unsupported" || s.action === "drop";
     li.querySelector(".reason").textContent = needsReason ? s.reason : "";
     li.title = s.reason;
 
     list.appendChild(li);
   }
-}
-
-/** El tema se elige en la ventana principal; las demás lo heredan. */
-export function applyStoredTheme() {
-  const choice = localStorage.getItem("theme") ?? "auto";
-  if (choice === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", choice);
 }

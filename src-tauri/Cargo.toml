@@ -1,7 +1,7 @@
 [package]
 name = "carta"
 version = "0.1.0"
-description = "Deja tus vídeos listos para la tele"
+description = "Get your videos ready to play on the TV"
 edition = "2021"
 
 [lib]
