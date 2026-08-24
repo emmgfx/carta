@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir, openUrl } from "@tauri-apps/plugin-opener";
+import { getVersion } from "@tauri-apps/api/app";
 import { codecName, renderTracks } from "./tracks.js";
 
 const $ = (id) => document.getElementById(id);
@@ -12,6 +13,15 @@ let analysis = null;
 let running = false;
 let output = null;
 let customName = null;
+
+// ---------- colophon ----------
+
+const SOURCE_URL = "https://github.com/emmgfx/carta";
+
+/* A plain <a href> would navigate the webview away from the app, so the link is
+   a button that hands the URL to the system browser. */
+$("source").onclick = () => openUrl(SOURCE_URL);
+getVersion().then((v) => { $("version").textContent = `Carta ${v} ·`; });
 
 // ---------- appearance ----------
 

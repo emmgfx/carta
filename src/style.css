@@ -236,6 +236,26 @@ body.dragging::after {
 }
 .link:hover { color: var(--ink); border-bottom-color: var(--ink); }
 
+/* Version and source link. Quiet, and only on the idle screen: it is the one
+   moment when nothing else needs saying. */
+.colophon {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 6px;
+  margin: 44px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.colophon .link {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  border-bottom-color: var(--rule-lo);
+}
+.colophon .link:hover { color: var(--ink-2); border-bottom-color: var(--ink-3); }
+
 /* ---------------------------------------------------------- section labels */
 
 .label-row { display: flex; align-items: center; gap: 13px; margin: 30px 0 13px; }
