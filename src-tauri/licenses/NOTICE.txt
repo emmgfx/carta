@@ -1,0 +1,43 @@
+Carta
+Copyright (c) 2026 emmgfx
+Licensed under the MIT License. Source: https://github.com/emmgfx/carta
+
+This application bundles the following components, which it runs as separate
+processes and does not link against.
+
+--------------------------------------------------------------------------
+ffmpeg 8.1.2 and ffprobe 8.1.2
+Copyright (c) 2000-2025 the FFmpeg developers
+https://ffmpeg.org
+
+Licensed under the GNU General Public License version 2 or later, the text of
+which is included alongside this notice as GPLv2.txt.
+
+Built unmodified from the official source release:
+    https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+
+with the configuration:
+
+    --enable-gpl --enable-libx264 --enable-videotoolbox --enable-audiotoolbox
+    --disable-doc --disable-ffplay --disable-network --disable-debug
+    --disable-libxcb --disable-xlib --disable-sdl2
+
+The script that reproduces this build, scripts/build-ffmpeg.sh, is part of
+Carta's source repository linked above.
+
+--------------------------------------------------------------------------
+x264
+Copyright (c) 2003-2025 x264 project
+https://www.videolan.org/developers/x264.html
+
+Licensed under the GNU General Public License version 2 or later. Statically
+linked into the ffmpeg binaries above. Built from commit
+0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee of
+https://code.videolan.org/videolan/x264.git
+
+--------------------------------------------------------------------------
+Lucide icons
+Copyright (c) 2022 Lucide Contributors
+https://lucide.dev
+
+Licensed under the ISC License. Icon paths are embedded in Carta's source.
