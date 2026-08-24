@@ -7,21 +7,33 @@ Drop in an `.mkv`, the app inspects every track and works out the least it has
 to touch. In the normal case the video is never re-encoded: it is remuxed into
 MP4 in seconds.
 
+**macOS only, Apple Silicon.** Hardware encoding goes through VideoToolbox, and
+the window chrome relies on macOS-specific Tauri options — a transparent title
+bar with repositioned traffic lights. Neither has an equivalent on Windows or
+Linux, and porting it without a machine to test on would be guesswork. The
+track analysis and the ffmpeg planning are portable; the chrome and the encoder
+are not. Intel Macs need the `-x86_64-apple-darwin` sidecars alongside.
+
 ## Usage
 
 ```
 npm install
-./scripts/fetch-ffmpeg.sh   # downloads the sidecars, which are not in the repo
+./scripts/build-ffmpeg.sh   # builds the sidecars, which are not in the repo
 npm run tauri dev           # development
 npm run tauri build         # builds the .app into src-tauri/target/release/bundle/macos
 ```
 
-**There are no prebuilt downloads, by design.** The ffmpeg build the script
-fetches is compiled `--enable-nonfree` and cannot legally be redistributed, so
-shipping an `.app` or a `.dmg` containing it is not an option — see
-[THIRD-PARTY.md](THIRD-PARTY.md). Building it yourself has an upside anyway: an
-app compiled on your own machine carries no quarantine flag, so macOS opens it
-without the Gatekeeper detour an unsigned download would trigger.
+Building ffmpeg takes a few minutes and needs `pkg-config`
+(`brew install pkg-config`). `./scripts/fetch-ffmpeg.sh` downloads a prebuilt
+binary instead, which is quicker but produces something that cannot legally be
+redistributed — fine while working on the app, not for shipping one.
+
+**There are no prebuilt downloads.** Not because there cannot be — an app built
+with `build-ffmpeg.sh` is GPL and perfectly distributable — but because an
+unsigned `.app` downloaded from the web hits Gatekeeper, and getting past that
+needs an Apple Developer account. Building it yourself sidesteps the whole
+thing: an app compiled on your own machine carries no quarantine flag and opens
+normally. See [THIRD-PARTY.md](THIRD-PARTY.md) for the licence details.
 
 Building needs Rust. If you do not have it:
 
@@ -169,9 +181,10 @@ ffmpeg will **not** do: it points at dylibs under `/opt/homebrew`.
 
 Adding Intel support means placing the `-x86_64-apple-darwin` binaries alongside.
 
-> **Licence.** The current binaries come from `ffmpeg-static` and are built with
-> `--enable-gpl --enable-nonfree`. They work for personal use but are **not
-> redistributable**. See [THIRD-PARTY.md](THIRD-PARTY.md).
+> **Licence.** `build-ffmpeg.sh` produces a **GPL v2+** build, which can be
+> distributed as long as the licence and the corresponding source come with it.
+> `fetch-ffmpeg.sh` downloads a `--enable-nonfree` build that cannot. See
+> [THIRD-PARTY.md](THIRD-PARTY.md).
 
 ## Why there is no .dmg
 

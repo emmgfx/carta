@@ -4,32 +4,59 @@
 
 The app embeds them as *sidecars* and runs them **as separate processes**: it
 does not link their libraries. The binaries are not versioned in this
-repository; fetch them with `scripts/fetch-ffmpeg.sh`.
+repository; there are two ways to get them.
 
-> **The build that script downloads is not redistributable.** It comes from
-> [`ffmpeg-static`](https://www.npmjs.com/package/ffmpeg-static) and is compiled
-> with `--enable-gpl --enable-nonfree`. The binary says so itself:
->
-> ```
-> $ ffmpeg -L
-> This version of ffmpeg has nonfree parts compiled in.
-> Therefore it is not legally redistributable.
-> ```
->
-> It is fine for building and running the app on your own machine. **Do not
-> publish an `.app` or a `.dmg` that contains it.**
+### Building them (redistributable)
 
-To distribute binaries, replace it with your own LGPL build:
+```
+./scripts/build-ffmpeg.sh
+```
 
-- `--disable-gpl --disable-nonfree`, without `libx264` or `libx265`
-- with `--enable-videotoolbox` and `--enable-audiotoolbox`
+Builds ffmpeg 8.1.2 with libx264 from source, pinned to a specific commit, and
+verifies that the result links nothing outside the system frameworks. The
+configuration is `--enable-gpl --enable-libx264` with **no** `--enable-nonfree`
+and **no** `--enable-version3`, so the result is **GPL v2 or later** and can be
+distributed.
 
-Functional consequence: the "libx264 — better quality" option disappears and
-re-encoding falls to `h264_videotoolbox`, which is the verified path and costs
-the app no functionality.
+Only `libx264` comes from outside. Everything Carta relies on — the H.264, AAC,
+AC-3, DTS, FLAC and PCM codecs, the ASS-to-SRT conversion, the MP4 and Matroska
+muxers — is native to ffmpeg, and hardware encoding comes from Apple's
+VideoToolbox. Dropping the nineteen external libraries the prebuilt binary
+carries halves the size, from 43 MB to 22 MB.
 
-When shipping an LGPL build, include the licence text, the exact version used
-and the build script, so anyone can reconstruct that same binary.
+Needs `pkg-config`, which is how ffmpeg's configure locates libx264:
+`brew install pkg-config`. The rest — make, clang, git, curl — ships with the
+Command Line Tools.
+
+**Shipping a binary built this way means complying with the GPL**: include the
+licence text, and make the corresponding source available. Since the build is
+unmodified, pointing at the official ffmpeg 8.1.2 tarball plus this script,
+which records the exact version and configure line, covers it. Carta's own code
+stays MIT: running a program as a separate process is aggregation, not a
+combined work.
+
+### Downloading them (faster, local use only)
+
+```
+./scripts/fetch-ffmpeg.sh
+```
+
+Pulls a prebuilt binary from
+[`ffmpeg-static`](https://www.npmjs.com/package/ffmpeg-static). Quicker and
+needs no build tools, but that build is compiled `--enable-gpl --enable-nonfree`
+and says so itself:
+
+```
+$ ffmpeg -L
+This version of ffmpeg has nonfree parts compiled in.
+Therefore it is not legally redistributable.
+```
+
+Fine for working on the app. **Do not publish an `.app` or a `.dmg` containing
+it.** Curiously, its configure line includes no component that actually requires
+`nonfree` — no libfdk_aac, no NPP, no DeckLink — so the flag looks gratuitous.
+That changes nothing: the binary declares itself non-redistributable, and nobody
+sensible ships something while arguing its own label is wrong.
 
 ffmpeg: <https://ffmpeg.org> · <https://ffmpeg.org/legal.html>
 
