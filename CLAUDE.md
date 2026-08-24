@@ -99,6 +99,33 @@ before being measured, and both were wrong.
 verified by grepping for accented characters, which cannot match "Ajustes" or
 "Pistas". The check had a hole shaped exactly like the bug.
 
+## Releasing
+
+The version lives in three files and they have to agree:
+
+```
+src-tauri/tauri.conf.json    "version"
+package.json                 "version"
+src-tauri/Cargo.toml         version
+```
+
+Bump all three, rebuild, then cut a **new** tag:
+
+```
+npm run tauri build
+cd src-tauri/target/release/bundle/dmg
+shasum -a 256 Carta_<v>_aarch64.dmg > Carta_<v>_aarch64.dmg.sha256
+shasum -a 256 -c Carta_<v>_aarch64.dmg.sha256      # check it before uploading
+gh release create v<v> Carta_<v>_aarch64.dmg Carta_<v>_aarch64.dmg.sha256 --title "Carta <v>" --notes "…"
+```
+
+Never move a published tag and never `--clobber` a release asset. It was done
+once here, on a release with zero downloads, and it was still the wrong call:
+whoever holds an old build loses the ability to verify what they have. A new
+version costs nothing.
+
+Publishing is outward-facing and hard to undo. Ask first.
+
 ## Not done
 
 No end-to-end run through the interface has been verified — the ffmpeg commands
