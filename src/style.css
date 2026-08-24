@@ -388,7 +388,6 @@ body.report .colophon { display: none; }
   outline: none;
   background: var(--panel-2);
   border-color: var(--rule);
-  text-align: left;
 }
 .end .meta {
   font-family: var(--mono);

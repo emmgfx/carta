@@ -381,16 +381,31 @@ $("fat32").onchange = () => { if (analysis) analyze(analysis.path); };
    was typed, and fall back to the proposed name when the field is left empty. */
 const nameTo = $("nameTo");
 
+/* Clicking places the caret *after* focus fires, so a selection made on focus
+   gets overwritten. The flag lets the following mouseup be cancelled, which is
+   what keeps the preselection alive. */
+let claimSelection = false;
+
 nameTo.onfocus = () => {
   nameTo.value = nameTo.dataset.full;
   // Finder's habit: preselect the name without the extension, which is the part
   // anyone actually wants to retype.
   const stem = nameTo.value.replace(/\.mp4$/i, "").length;
   nameTo.setSelectionRange(0, stem, "backward");
-  // The scroll offset is already set by assigning .value, and the selection
-  // direction alone does not undo it. Forcing it is the deterministic way to
-  // land on the start of the name.
   nameTo.scrollLeft = 0;
+  claimSelection = true;
+};
+
+nameTo.onmouseup = (e) => {
+  if (!claimSelection) return;
+  claimSelection = false;
+  e.preventDefault();
+};
+
+nameTo.onmousedown = () => {
+  // A click on an already-focused field means "put the caret here", not
+  // "select everything again".
+  if (document.activeElement === nameTo) claimSelection = false;
 };
 nameTo.oninput = () => {
   nameTo.dataset.full = nameTo.value;
