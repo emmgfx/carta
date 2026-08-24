@@ -682,7 +682,10 @@ body.done #fill { background: var(--copy); }
   position: fixed;
   inset: 0;
   z-index: 200;
-  display: flex;
+  /* Grid rather than flex with auto margins: the panel needs its height clamped
+     to the container, and auto margins let it grow past the padding instead. */
+  display: grid;
+  place-items: center;
   padding: 62px 20px 20px;
   background: rgba(0, 0, 0, .38);
   -webkit-backdrop-filter: blur(3px);
@@ -692,10 +695,11 @@ body.done #fill { background: var(--copy); }
 .legal-panel {
   display: flex;
   flex-direction: column;
+  /* Bounded, or the panel grows with the GPL text instead of scrolling it. */
+  max-height: 100%;
   min-height: 0;
   width: 100%;
   max-width: 720px;
-  margin: auto;
   background: var(--bg);
   border: 1px solid var(--rule);
   border-radius: 10px;

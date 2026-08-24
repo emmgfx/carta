@@ -383,14 +383,16 @@ new ResizeObserver(dockSpace).observe($("dock"));
    going to happen", and the track list is the backup you check when something
    looks off. */
 function showPanel(name) {
-  for (const tab of document.querySelectorAll(".tab")) {
+  // Scoped on purpose: an unqualified ".tab" also matches the license panel's
+  // buttons, and this loop would overwrite their handlers.
+  for (const tab of document.querySelectorAll("#report .tabs .tab")) {
     const on = tab.dataset.panel === name;
     tab.setAttribute("aria-selected", String(on));
     $(`panel-${tab.dataset.panel}`).classList.toggle("hidden", !on);
   }
 }
 
-for (const tab of document.querySelectorAll(".tab")) {
+for (const tab of document.querySelectorAll("#report .tabs .tab")) {
   tab.onclick = () => showPanel(tab.dataset.panel);
 }
 
