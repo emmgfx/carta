@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir, openUrl, openPath } from "@tauri-apps/plugin-opener";
+import { revealItemInDir, openUrl } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
 import { codecName, renderTracks } from "./tracks.js";
 
@@ -26,16 +26,32 @@ $("author").onclick = () => openUrl(AUTHOR_URL);
 /* ffmpeg and x264 are GPL, so whoever gets a copy has to be able to reach the
    license and the source. Buried in the bundle it technically travels with the
    app; from here it is actually findable. */
-$("licenses").onclick = async () => {
-  const path = await invoke("notice_path");
-  // Opening it in a text editor is the friendly outcome; revealing it in Finder
-  // is the one that cannot fail, since that permission needs no path scope.
-  try {
-    await openPath(path);
-  } catch {
-    await revealItemInDir(path);
+/* ffmpeg and x264 are GPL, so whoever gets a copy has to be able to reach the
+   license and the source. Shown in the app's own window: no external editor, and
+   nothing to scope in the permissions. */
+async function showLegal(doc) {
+  for (const b of document.querySelectorAll(".legal-head .tab")) {
+    b.setAttribute("aria-selected", String(b.dataset.doc === doc));
   }
-};
+  $("legal").classList.remove("hidden");
+  $("legalText").scrollTop = 0;
+  try {
+    $("legalText").textContent = await invoke("license_text", { name: doc });
+  } catch (e) {
+    $("legalText").textContent = String(e);
+  }
+}
+
+$("licenses").onclick = () => showLegal("notice");
+$("legalClose").onclick = () => $("legal").classList.add("hidden");
+for (const b of document.querySelectorAll(".legal-head .tab")) {
+  b.onclick = () => showLegal(b.dataset.doc);
+}
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("legal").classList.contains("hidden")) {
+    $("legal").classList.add("hidden");
+  }
+});
 getVersion().then((v) => { $("version").textContent = `Carta ${v} ·`; });
 
 // ---------- appearance ----------

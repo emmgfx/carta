@@ -927,14 +927,23 @@ async fn convert(
     Ok(out)
 }
 
-/// Path to the bundled notice, so the app can open what the GPL requires it to
-/// hand over: the license text and the route to the corresponding source.
+/// Contents of a bundled license file. The GPL wants whoever receives a copy to
+/// get the license text and a route to the source; reading it here means the app
+/// can show it in its own window, with no external editor and no path
+/// permissions to scope.
 #[tauri::command]
-fn notice_path(app: AppHandle) -> Result<String, String> {
-    app.path()
-        .resolve("licenses/NOTICE.txt", tauri::path::BaseDirectory::Resource)
-        .map(|p| p.to_string_lossy().to_string())
-        .map_err(|e| format!("notice not found: {e}"))
+fn license_text(app: AppHandle, name: String) -> Result<String, String> {
+    // Whitelist rather than trust the argument: this reads files from disk.
+    let file = match name.as_str() {
+        "notice" => "licenses/NOTICE.txt",
+        "gpl" => "licenses/GPLv2.txt",
+        other => return Err(format!("unknown license: {other}")),
+    };
+    let path = app
+        .path()
+        .resolve(file, tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("{file} not found: {e}"))?;
+    std::fs::read_to_string(&path).map_err(|e| format!("could not read {file}: {e}"))
 }
 
 #[tauri::command]
@@ -955,7 +964,7 @@ pub fn run() {
             app.manage(ConvState::default());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![analyze, convert, cancel, notice_path])
+        .invoke_handler(tauri::generate_handler![analyze, convert, cancel, license_text])
         .run(tauri::generate_context!())
         .expect("failed to start Carta");
 }

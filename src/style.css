@@ -673,3 +673,57 @@ body.done #fill { background: var(--copy); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------------------------------------------------------- licenses */
+
+/* Shown over the app rather than handed to a text editor: the GPL text is part
+   of what ships, so it should be readable without leaving. */
+.legal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  padding: 62px 20px 20px;
+  background: rgba(0, 0, 0, .38);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.legal-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  max-width: 720px;
+  margin: auto;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.legal-head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule-lo);
+}
+.legal-head .label { margin-right: auto; }
+.legal-head .tab { padding: 0; border-bottom-width: 2px; }
+.legal-head .ghost { padding: 6px 12px; }
+
+.legal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 16px;
+  background: var(--code);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
