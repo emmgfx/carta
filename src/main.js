@@ -120,8 +120,12 @@ const trimmed = [];
 
 function fitName(el) {
   const text = el.dataset.full;
-  const max = el.clientWidth;
-  if (!max) return;
+  const cs = getComputedStyle(el);
+  // clientWidth includes padding, so on the editable field it overstates the
+  // room by the horizontal padding and the trimmed name overflows.
+  const max =
+    el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  if (max <= 0) return;
 
   // While it is being edited the field shows the whole name: trimming under the
   // cursor would fight whoever is typing.
@@ -134,7 +138,6 @@ function fitName(el) {
     return;
   }
 
-  const cs = getComputedStyle(el);
   measurer.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   if (measurer.measureText(text).width <= max) {
     write(text);
@@ -380,7 +383,14 @@ const nameTo = $("nameTo");
 
 nameTo.onfocus = () => {
   nameTo.value = nameTo.dataset.full;
-  nameTo.select();
+  // Finder's habit: preselect the name without the extension, which is the part
+  // anyone actually wants to retype.
+  const stem = nameTo.value.replace(/\.mp4$/i, "").length;
+  nameTo.setSelectionRange(0, stem, "backward");
+  // The scroll offset is already set by assigning .value, and the selection
+  // direction alone does not undo it. Forcing it is the deterministic way to
+  // land on the start of the name.
+  nameTo.scrollLeft = 0;
 };
 nameTo.oninput = () => {
   nameTo.dataset.full = nameTo.value;

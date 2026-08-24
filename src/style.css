@@ -361,25 +361,35 @@ body.report .colophon { display: none; }
   overflow: hidden;
 }
 
-/* The destination is editable, so it is a real field. It looks exactly like the
-   text it replaces until you point at it, so the page does not read as a form. */
+/* The destination is editable, so it is a real field. It reads as plain text
+   until you point at it, and only then grows a surface.
+
+   Padding and border are always there — transparent at rest — and cancelled by
+   an equal negative margin. That way the text never moves when the field
+   lights up: only the colours change. */
 .end input.name {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
-  padding: 0 0 1px;
-  border: 0;
-  border-bottom: 1px dashed transparent;
-  border-radius: 0;
+  padding: 4px 8px;
+  margin: -5px -9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--ink);
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 600;
   text-align: right;
+  transition: background .12s, border-color .12s;
 }
-.end input.name:hover { border-bottom-color: var(--rule); }
-.end input.name:focus { outline: none; border-bottom-color: var(--extract); }
+.end input.name:hover { background: var(--panel-2); }
+.end input.name:focus {
+  outline: none;
+  background: var(--panel-2);
+  border-color: var(--rule);
+  text-align: left;
+}
 .end .meta {
   font-family: var(--mono);
   font-size: 11px;
