@@ -385,8 +385,11 @@ const nameTo = $("nameTo");
    gets overwritten. The flag lets the following mouseup be cancelled, which is
    what keeps the preselection alive. */
 let claimSelection = false;
+/* What the name was when editing started, so Esc can put it back. */
+let beforeEdit = null;
 
 nameTo.onfocus = () => {
+  beforeEdit = { full: nameTo.dataset.full, custom: customName };
   nameTo.value = nameTo.dataset.full;
   // Finder's habit: preselect the name without the extension, which is the part
   // anyone actually wants to retype.
@@ -400,6 +403,18 @@ nameTo.onmouseup = (e) => {
   if (!claimSelection) return;
   claimSelection = false;
   e.preventDefault();
+};
+
+nameTo.onkeydown = (e) => {
+  if (e.key === "Escape") {
+    // Undo the edit, not just the focus: leaving a half-typed name behind would
+    // be a worse outcome than either committing or cancelling.
+    nameTo.dataset.full = beforeEdit.full;
+    customName = beforeEdit.custom;
+    nameTo.blur();
+  } else if (e.key === "Enter") {
+    nameTo.blur();
+  }
 };
 
 nameTo.onmousedown = () => {
