@@ -16,8 +16,12 @@ npm run tauri dev           # development
 npm run tauri build         # builds the .app into src-tauri/target/release/bundle/macos
 ```
 
-Read [THIRD-PARTY.md](THIRD-PARTY.md) before distributing anything: the ffmpeg
-that script downloads **is not redistributable**.
+**There are no prebuilt downloads, by design.** The ffmpeg build the script
+fetches is compiled `--enable-nonfree` and cannot legally be redistributed, so
+shipping an `.app` or a `.dmg` containing it is not an option — see
+[THIRD-PARTY.md](THIRD-PARTY.md). Building it yourself has an upside anyway: an
+app compiled on your own machine carries no quarantine flag, so macOS opens it
+without the Gatekeeper detour an unsigned download would trigger.
 
 Building needs Rust. If you do not have it:
 
