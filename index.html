@@ -80,19 +80,21 @@
           </div>
           <div id="warnings"></div>
 
-          <div class="label-row"><span class="label">Settings</span><hr /></div>
-          <div class="settings">
-            <label class="toggle">
-              <input type="checkbox" id="fat32" />
-              Cap output at 4 GB (FAT32)
-            </label>
-            <label class="field hidden" id="encoderField">
-              <span>Re-encode with</span>
-              <select id="encoder">
-                <option value="videotoolbox">VideoToolbox</option>
-                <option value="x264">libx264</option>
-              </select>
-            </label>
+          <div id="settings">
+            <div class="label-row"><span class="label">Settings</span><hr /></div>
+            <div class="settings">
+              <label class="toggle hidden" id="fatField">
+                <input type="checkbox" id="fat32" />
+                Cap output at 4 GB (FAT32)
+              </label>
+              <label class="field hidden" id="encoderField">
+                <span>Re-encode with</span>
+                <select id="encoder">
+                  <option value="videotoolbox">VideoToolbox</option>
+                  <option value="x264">libx264</option>
+                </select>
+              </label>
+            </div>
           </div>
         </div>
 

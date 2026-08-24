@@ -85,6 +85,10 @@ pub struct Analysis {
     needs_video_encode: bool,
     /// Expected size of the resulting MP4, in bytes.
     output_size: f64,
+    /// Whether the file would bust the FAT32 limit if left uncapped. Computed
+    /// before applying any cap, so ticking the box does not make the option
+    /// that produced the cap disappear.
+    over_fat32: bool,
     estimate: Estimate,
     warnings: Vec<String>,
 }
@@ -486,6 +490,7 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
         video.src_bits
     };
     let mut output_size = (video_bits + audio_bits) / 8.0 * duration * 1.004;
+    let over_fat32 = output_size > FAT32_LIMIT;
 
     if limit > 0.0 && duration > 0.0 && output_size > limit {
         let budget = limit * 8.0 * SIZE_MARGIN;
@@ -559,6 +564,7 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
         streams: infos,
         needs_video_encode: video.encode,
         output_size,
+        over_fat32,
         estimate,
         warnings,
     };

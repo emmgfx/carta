@@ -206,8 +206,14 @@ function render() {
 
   renderTracks($("tracks"), a.streams);
 
-  // The encoder only matters when something is actually going to be encoded.
+  /* Each control only appears when it can change something. The 4 GB cap is
+     offered when the file would bust the limit on its own — judged before any
+     cap is applied, or ticking the box would hide the box. The encoder only
+     matters when something is actually going to be encoded. And with neither,
+     the whole section has nothing to say. */
+  $("fatField").classList.toggle("hidden", !a.over_fat32);
   $("encoderField").classList.toggle("hidden", !a.needs_video_encode);
+  $("settings").classList.toggle("hidden", !a.over_fat32 && !a.needs_video_encode);
 
   $("convert").disabled = false;
   $("cancel").classList.add("hidden");

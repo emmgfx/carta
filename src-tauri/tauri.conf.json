@@ -15,7 +15,7 @@
         "label": "main",
         "title": "Carta",
         "width": 640,
-        "height": 420,
+        "height": 432,
         "minWidth": 520,
         "minHeight": 380,
         "dragDropEnabled": true,
