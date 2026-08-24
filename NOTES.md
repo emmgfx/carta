@@ -113,4 +113,7 @@ clear WCAG AA, which is the floor to hold if the palette changes.
 
 **Carta** is short for *carta de ajuste*, Spanish for the test card — the image
 TVs used to be calibrated with, and where the four decision colours come from.
-The icon is lucide's `tv-minimal` with SMPTE bars inside the screen.
+
+The icon is lucide's `tv-minimal` on white. An earlier version carried SMPTE
+bars inside the screen, which tied it to the name, but against a Dock full of
+saturated icons it read as a dark empty tile. Legibility won over the pun.
