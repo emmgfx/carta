@@ -292,7 +292,7 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
                 }
 
                 let encode = !problems.is_empty();
-                // Bitrate objetivo si toca recodificar: el de origen, acotado.
+                // Target bitrate if re-encoding is needed: the source one, clamped.
                 // With no figure here it stays at zero and is derived later, by
                 // subtracting the audio from the file total.
                 let src_k = num(s, "bit_rate").map(|b| b / 1000.0).unwrap_or(0.0);
@@ -501,12 +501,12 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
             info.action = "convert".into();
             info.target = format!("H.264 High · {kbps} kbps");
             info.reason = format!(
-                "no cabe en {}: se recodifica a {kbps} kbps para que entre",
+                "does not fit in {}: re-encoded to {kbps} kbps so it will",
                 human_size(limit)
             );
         }
 
-        // Por debajo de estos umbrales el resultado se ve mal de verdad.
+        // Below these thresholds the result genuinely looks bad.
         let floor = if pixels > 1_000_000.0 { 1800 } else { 900 };
         if kbps < floor {
             warnings.push(format!(
@@ -550,7 +550,7 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
         output_name: out
             .file_name()
             .and_then(|s| s.to_str())
-            .unwrap_or("salida.mp4")
+            .unwrap_or("output.mp4")
             .to_string(),
         output_path: out.to_string_lossy().to_string(),
         container,

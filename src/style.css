@@ -113,7 +113,7 @@ body {
   border-radius: 3px;
 }
 
-/* La columna ocupa el alto libre para poder centrar la zona de soltar */
+/* The column takes the free height so the drop zone can be centred */
 .scroll {
   flex: 1;
   overflow-y: auto;
