@@ -17,10 +17,12 @@ let customName = null;
 // ---------- colophon ----------
 
 const SOURCE_URL = "https://github.com/emmgfx/carta";
+const AUTHOR_URL = "https://github.com/emmgfx";
 
-/* A plain <a href> would navigate the webview away from the app, so the link is
-   a button that hands the URL to the system browser. */
+/* Plain <a href> links would navigate the webview away from the app, so these
+   are buttons that hand the URL to the system browser. */
 $("source").onclick = () => openUrl(SOURCE_URL);
+$("author").onclick = () => openUrl(AUTHOR_URL);
 getVersion().then((v) => { $("version").textContent = `Carta ${v} ·`; });
 
 // ---------- appearance ----------
@@ -121,10 +123,21 @@ function fitName(el) {
   const max = el.clientWidth;
   if (!max) return;
 
+  // While it is being edited the field shows the whole name: trimming under the
+  // cursor would fight whoever is typing.
+  const write = (v) => {
+    if (el.tagName === "INPUT") el.value = v;
+    else el.textContent = v;
+  };
+  if (document.activeElement === el) {
+    write(text);
+    return;
+  }
+
   const cs = getComputedStyle(el);
   measurer.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   if (measurer.measureText(text).width <= max) {
-    el.textContent = text;
+    write(text);
     return;
   }
 
@@ -142,7 +155,7 @@ function fitName(el) {
     else hi = mid - 1;
   }
   const head = Math.ceil(lo / 2);
-  el.textContent = text.slice(0, head) + "…" + text.slice(text.length - (lo - head));
+  write(text.slice(0, head) + "…" + text.slice(text.length - (lo - head)));
 }
 
 new ResizeObserver(() => trimmed.forEach(fitName)).observe(document.documentElement);
@@ -163,7 +176,7 @@ function renderRoute(a) {
 
   // A hand-typed name survives a re-analysis: toggling the cap re-runs the plan
   // and would otherwise wipe what the user just wrote.
-  $("nameTo").value = customName ?? a.output_name;
+  setName($("nameTo"), customName ?? a.output_name);
   // Keeps ffmpeg's own option name; the hover explains what it means.
   $("metaTo").textContent = `${fmtShort(a.duration)} · ≈ ${fmtSize(a.output_size)} · `;
   const hint = document.createElement("span");
@@ -363,10 +376,17 @@ $("fat32").onchange = () => { if (analysis) analyze(analysis.path); };
 
 /* Sanitising and the no-overwrite rule live in Rust; here we only remember what
    was typed, and fall back to the proposed name when the field is left empty. */
-$("nameTo").oninput = () => {
-  const typed = $("nameTo").value.trim();
-  customName = typed || null;
+const nameTo = $("nameTo");
+
+nameTo.onfocus = () => {
+  nameTo.value = nameTo.dataset.full;
+  nameTo.select();
 };
+nameTo.oninput = () => {
+  nameTo.dataset.full = nameTo.value;
+  customName = nameTo.value.trim() || null;
+};
+nameTo.onblur = () => fitName(nameTo);
 $("convert").onclick = () => (output ? revealItemInDir(output) : convert());
 $("reset").onclick = reset;
 $("cancel").onclick = () => invoke("cancel").catch(() => {});

@@ -2,6 +2,10 @@
   "name": "carta",
   "private": true,
   "version": "0.1.0",
+  "description": "Get your videos ready to play on the TV",
+  "author": "emmgfx",
+  "license": "MIT",
+  "repository": "https://github.com/emmgfx/carta",
   "type": "module",
   "scripts": {
     "dev": "vite",

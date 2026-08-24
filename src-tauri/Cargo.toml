@@ -2,6 +2,9 @@
 name = "carta"
 version = "0.1.0"
 description = "Get your videos ready to play on the TV"
+authors = ["emmgfx"]
+license = "MIT"
+repository = "https://github.com/emmgfx/carta"
 edition = "2021"
 
 [lib]

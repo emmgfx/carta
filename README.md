@@ -206,3 +206,9 @@ to the proposed name.
 
 Nothing is ever overwritten. If the target already exists — which is what
 happens when converting an `.mp4` in place — it becomes `Movie (2).mp4`.
+
+## Credits
+
+Built by [emmgfx](https://github.com/emmgfx). MIT licensed — see
+[LICENSE](LICENSE), and [THIRD-PARTY.md](THIRD-PARTY.md) for the components it
+leans on.

@@ -128,7 +128,7 @@ body {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 60px 22px 30px;
+  padding: 60px 22px 46px;
   display: flex;
   flex-direction: column;
 }
@@ -236,18 +236,25 @@ body.dragging::after {
 }
 .link:hover { color: var(--ink); border-bottom-color: var(--ink); }
 
-/* Version and source link. Quiet, and only on the idle screen: it is the one
-   moment when nothing else needs saying. */
+/* Version and source link, at the foot of the window. Only on the idle screen:
+   once a file is open the action bar owns the footer, and it is the one moment
+   when nothing else needs saying. */
 .colophon {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   justify-content: center;
   align-items: baseline;
   gap: 6px;
-  margin: 44px 0 0;
+  margin: 0;
+  padding: 14px 20px;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-3);
 }
+body.report .colophon { display: none; }
 .colophon .link {
   font-family: var(--mono);
   font-size: 11px;
