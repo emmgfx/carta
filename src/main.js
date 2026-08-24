@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir, openUrl } from "@tauri-apps/plugin-opener";
+import { revealItemInDir, openUrl, openPath } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
 import { codecName, renderTracks } from "./tracks.js";
 
@@ -23,6 +23,16 @@ const AUTHOR_URL = "https://github.com/emmgfx";
    are buttons that hand the URL to the system browser. */
 $("source").onclick = () => openUrl(SOURCE_URL);
 $("author").onclick = () => openUrl(AUTHOR_URL);
+/* ffmpeg and x264 are GPL, so whoever gets a copy has to be able to reach the
+   licence and the source. Buried in the bundle it technically travels with the
+   app; from here it is actually findable. */
+$("licenses").onclick = async () => {
+  try {
+    await openPath(await invoke("notice_path"));
+  } catch (e) {
+    logLine(`Could not open the notice: ${e}`);
+  }
+};
 getVersion().then((v) => { $("version").textContent = `Carta ${v} ·`; });
 
 // ---------- appearance ----------

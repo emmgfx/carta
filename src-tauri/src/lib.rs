@@ -927,6 +927,16 @@ async fn convert(
     Ok(out)
 }
 
+/// Path to the bundled notice, so the app can open what the GPL requires it to
+/// hand over: the licence text and the route to the corresponding source.
+#[tauri::command]
+fn notice_path(app: AppHandle) -> Result<String, String> {
+    app.path()
+        .resolve("licenses/NOTICE.txt", tauri::path::BaseDirectory::Resource)
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| format!("notice not found: {e}"))
+}
+
 #[tauri::command]
 fn cancel(state: State<'_, ConvState>) -> Result<(), String> {
     if let Some(child) = state.0.lock().unwrap().take() {
@@ -945,7 +955,7 @@ pub fn run() {
             app.manage(ConvState::default());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![analyze, convert, cancel])
+        .invoke_handler(tauri::generate_handler![analyze, convert, cancel, notice_path])
         .run(tauri::generate_context!())
         .expect("failed to start Carta");
 }

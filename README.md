@@ -1,5 +1,7 @@
 # Carta
 
+<img src="app-icon.png" width="104" align="right" alt="" />
+
 A desktop app (Tauri v2) that gets downloaded videos ready to play straight off
 a USB stick or a NAS on your TV.
 
@@ -28,18 +30,37 @@ Building ffmpeg takes a few minutes and needs `pkg-config`
 binary instead, which is quicker but produces something that cannot legally be
 redistributed — fine while working on the app, not for shipping one.
 
-**There are no prebuilt downloads.** Not because there cannot be — an app built
-with `build-ffmpeg.sh` is GPL and perfectly distributable — but because an
-unsigned `.app` downloaded from the web hits Gatekeeper, and getting past that
-needs an Apple Developer account. Building it yourself sidesteps the whole
-thing: an app compiled on your own machine carries no quarantine flag and opens
-normally. See [THIRD-PARTY.md](THIRD-PARTY.md) for the licence details.
+See [THIRD-PARTY.md](THIRD-PARTY.md) for the licence details.
 
 Building needs Rust. If you do not have it:
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ```
+
+## Installing a build
+
+Carta is **not signed or notarised**, because that needs a paid Apple Developer
+account and this is a small free tool. macOS will therefore refuse to open it on
+the first attempt, saying it cannot verify the app is free of malware.
+
+To open it anyway: **System Settings → Privacy & Security**, scroll to the
+message about Carta, and press **Open Anyway**. Once done, it opens normally
+from then on. Control-clicking the app no longer works as a shortcut on recent
+macOS versions.
+
+From the terminal, the equivalent is:
+
+```
+xattr -dr com.apple.quarantine /Applications/Carta.app
+```
+
+Worth being clear about what that check is for: signing ties a binary to an
+identity Apple can revoke if it turns out to be malware, and the quarantine flag
+is what triggers the check on anything downloaded. Bypassing it is a reasonable
+thing to do for software you trust and a bad habit in general. If you would
+rather not take anyone's word for it, building from source skips the question
+entirely — a locally built app is never quarantined.
 
 ## What it decides, and why
 
@@ -185,12 +206,6 @@ Adding Intel support means placing the `-x86_64-apple-darwin` binaries alongside
 > distributed as long as the licence and the corresponding source come with it.
 > `fetch-ffmpeg.sh` downloads a `--enable-nonfree` build that cannot. See
 > [THIRD-PARTY.md](THIRD-PARTY.md).
-
-## Why there is no .dmg
-
-A `.dmg` only adds the "drag to Applications" gesture when distributing to other
-people. For your own use the `.app` is enough and the build is shorter. If it
-ever needs shipping, add `"dmg"` back to `bundle.targets`.
 
 ## Layout
 
