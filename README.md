@@ -2,245 +2,84 @@
 
 <img src="app-icon.png" width="104" align="right" alt="" />
 
-A desktop app (Tauri v2) that gets downloaded videos ready to play straight off
-a USB stick or a NAS on your TV.
+Gets downloaded videos ready to play on the TV, straight off a USB stick or a
+NAS.
 
-Drop in an `.mkv`, the app inspects every track and works out the least it has
-to touch. In the normal case the video is never re-encoded: it is remuxed into
-MP4 in seconds.
+Drop in an `.mkv`. Carta looks at every track and works out the least it has to
+change. Usually that means the video is left exactly as it is and only the
+container changes — a couple of seconds for a whole film, with no loss of
+quality. It only re-encodes when the video genuinely will not play, and it says
+so before you commit to the wait.
 
-**macOS only, Apple Silicon.** Hardware encoding goes through VideoToolbox, and
-the window chrome relies on macOS-specific Tauri options — a transparent title
-bar with repositioned traffic lights. Neither has an equivalent on Windows or
-Linux, and porting it without a machine to test on would be guesswork. The
-track analysis and the ffmpeg planning are portable; the chrome and the encoder
-are not. Intel Macs need the `-x86_64-apple-darwin` sidecars alongside.
+Subtitles come out as `.srt` files named to match, so the TV picks them up.
 
-## Usage
+**macOS on Apple Silicon.**
+[Download the latest release](https://github.com/emmgfx/carta/releases/latest).
+
+## What it does to your files
+
+The original is never touched. The result lands next to it with the same name
+and an `.mp4` extension, and the name is editable before you start.
+
+| Track | Carta will |
+|---|---|
+| Video the TV can play — H.264, 8-bit, level 4.1 or lower | **copy it**, untouched |
+| Anything else — 10-bit, unusual colour, another codec | **re-encode it** to H.264 |
+| Audio in AAC, AC3 or MP3 | **copy it**, untouched |
+| Audio in DTS, TrueHD, FLAC, PCM… | **convert it** to AC3 or AAC |
+| Text subtitles | **pull them out** as `.srt` files |
+| Image subtitles (PGS, VOBSUB) | **drop them** — turning those into text needs OCR |
+
+Every audio track survives, with its language. All of it is listed per track
+before anything runs, so you can see exactly what will happen.
+
+### Files that are too big
+
+FAT32 sticks cannot hold a file of 4 GB or more. **Cap output at 4 GB** works
+out the bitrate that does fit and re-encodes to it — which is slow, and costs
+quality, so it only appears when the file would not fit anyway.
+
+Formatting the stick as exFAT removes the limit without touching the video at
+all. If the TV reads exFAT, that is the better answer.
+
+## Building it yourself
+
+Needs [Node](https://nodejs.org) and [Rust](https://rustup.rs).
 
 ```
 npm install
-./scripts/build-ffmpeg.sh   # builds the sidecars, which are not in the repo
-npm run tauri dev           # development
-npm run tauri build         # builds the .app into src-tauri/target/release/bundle/macos
+./scripts/build-ffmpeg.sh
+npm run tauri build
 ```
 
-Building ffmpeg takes a few minutes and needs `pkg-config`
-(`brew install pkg-config`). `./scripts/fetch-ffmpeg.sh` downloads a prebuilt
-binary instead, which is quicker but produces something that cannot legally be
-redistributed — fine while working on the app, not for shipping one.
+The app is finished in `src-tauri/target/release/bundle/`.
 
-See [THIRD-PARTY.md](THIRD-PARTY.md) for the licence details.
+`build-ffmpeg.sh` compiles ffmpeg and x264 from source, which takes a few
+minutes and needs `pkg-config` (`brew install pkg-config`). For a quicker way
+in while working on the app, `./scripts/fetch-ffmpeg.sh` downloads a prebuilt
+ffmpeg instead — but that one cannot be redistributed, so it is no good for
+producing something to share. See [THIRD-PARTY.md](THIRD-PARTY.md).
 
-Building needs Rust. If you do not have it:
+## Opening a downloaded build
 
-```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-```
+Carta is not signed, because signing needs a paid Apple Developer account.
+macOS will refuse to open it the first time. To go ahead anyway: **System
+Settings → Privacy & Security**, find the message about Carta, and press **Open
+Anyway**.
 
-## Installing a build
+That check exists for a reason — it ties software to an identity Apple can
+revoke — so treat bypassing it as something you do for software you trust.
+Building it yourself avoids the question entirely: a locally built app is never
+flagged.
 
-Carta is **not signed or notarised**, because that needs a paid Apple Developer
-account and this is a small free tool. macOS will therefore refuse to open it on
-the first attempt, saying it cannot verify the app is free of malware.
+## More
 
-To open it anyway: **System Settings → Privacy & Security**, scroll to the
-message about Carta, and press **Open Anyway**. Once done, it opens normally
-from then on. Control-clicking the app no longer works as a shortcut on recent
-macOS versions.
-
-From the terminal, the equivalent is:
-
-```
-xattr -dr com.apple.quarantine /Applications/Carta.app
-```
-
-Worth being clear about what that check is for: signing ties a binary to an
-identity Apple can revoke if it turns out to be malware, and the quarantine flag
-is what triggers the check on anything downloaded. Bypassing it is a reasonable
-thing to do for software you trust and a bad habit in general. If you would
-rather not take anyone's word for it, building from source skips the question
-entirely — a locally built app is never quarantined.
-
-## What it decides, and why
-
-A conservative profile: it aims at the lowest common denominator of TVs with a
-USB port.
-
-| Track | Condition | Action |
-|---|---|---|
-| Video | H.264, `yuv420p`, profile up to High, level ≤ 4.1 | `copy` — no re-encoding |
-| Video | Hi10P, 4:2:2/4:4:4, level > 4.1, or not H.264 | re-encode to H.264 High 8-bit |
-| Video | second track or embedded cover art | dropped (an MP4 takes only one) |
-| Audio | AAC, AC3, MP3 | `copy` |
-| Audio | DTS, TrueHD, FLAC, PCM, Opus, E-AC3… with ≥ 6 channels | AC3 640k 5.1 |
-| Audio | same with ≤ 2 channels | AAC 192k stereo |
-| Subtitle | text (SRT, ASS, SSA, WebVTT, mov_text) | extracted to an external `.srt`, always |
-| Subtitle | image (PGS, VOBSUB, DVB) | dropped with a warning — it would need OCR |
-| Container | any | MP4 with `+faststart` |
-
-Every audio track is kept, with its language. Secondary video tracks are not.
-
-E-AC3 is transcoded to AC3 on purpose: nearly every TV from 2015 onwards
-supports it, but not every one, and re-encoding audio alone is cheap.
-
-### Subtitles
-
-They come out as separate files because that is what most TVs load on their own.
-The name derives from the **output MP4**, not the original — if it does not
-match, the TV will not find it:
-
-- A single track → `Movie.tv.srt`
-- Several → `Movie.tv.spa.srt`, `Movie.tv.eng.srt`
-
-Converting ASS to SRT, ffmpeg carries the styling across as `<font size="71">`,
-which many TVs render literally or at enormous size. `strip_styling()` removes
-it and keeps only `<i>`, `<b>`, `<u>`. It also clears ASS positioning (`{\an8}`).
-
-### Size limits
-
-FAT32 cannot hold a file of 4 GiB or more. The **Cap output at 4 GB** checkbox
-computes the bitrate that does fit — `(limit × 8 × margin ÷ duration) − audio` —
-and re-encodes to it. That trades away the fast path, so it only kicks in when
-the file would not fit otherwise.
-
-Formatting the drive as exFAT removes the limit without touching the video, and
-is the better answer whenever the TV can read it.
-
-The audio bitrate is estimated high on purpose: Matroska rarely declares it, and
-overestimating leaves the result smaller, which is the side to err on.
-
-## Design
-
-The window has tabs and never shows two at once. **Summary** answers "what is
-going to happen", **Tracks** is the backup for when something looks off, and
-**Conversion** only appears once the process starts: progress bar, timecode,
-speed, result and log live there. The footer holds buttons and nothing else.
-
-The summary reads as **origin → destination**, laid out horizontally with a
-chevron for direction. Below it, the cost verdict: **Direct copy** in green when
-streams are copied as they are, or **Needs re-encoding** in amber when the video
-is not compatible. That is the only thing that changes the order of magnitude of
-the work — seconds against minutes or hours — so it is the only thing given
-weight; the per-track breakdown is one tab away. The estimate sits next to the
-verdict because it is the same statement in numbers.
-
-File names are trimmed to one line with an ellipsis **in the middle**, so the
-extension survives; CSS can only cut at the end, so that trimming is measured
-and applied by the JS.
-
-In the track list, **colour encodes exactly one thing: the decision.** Green
-copy, amber convert, cyan extract, red unsupported. The track-type icons
-(`film`, `audio-lines`, `captions`, from lucide) stay neutral grey so they do
-not compete with it. Each track is identified the way an editor would: `V1`,
-`A1`, `A2`, `S1`.
-
-The app icon is lucide's `tv-minimal` with SMPTE bars inside the screen. The app
-is called **Carta** after *carta de ajuste*, Spanish for the test card — the
-image TVs used to be calibrated with, and where the four decision colours come
-from.
-
-### Chrome
-
-A 52 px top bar in the style of recent macOS: translucent material
-(`backdrop-filter`), a separator that only appears once you scroll, and the
-title drawn by the app — the native one is hidden because macOS would leave it
-at 28 px, off the axis. The traffic lights are repositioned with
-`trafficLightPosition`.
-
-Careful with that value: `tao` sets the container height to
-`button_height + y` and preserves the buttons' `origin.y`, so the real distance
-from the top edge is `y − 8`. Centring them in a 52 px bar means asking for
-`y: 28`.
-
-At the bottom, a fixed action bar in the same material: back on the left,
-forward on the right. The room the column reserves for it is measured with a
-`ResizeObserver` into `--dock-h`, because it wraps and grows in narrow windows.
-
-The document does not scroll (`html, body { overflow: hidden }`); an inner
-container does, with `overscroll-behavior: none`. If the document scrolled,
-macOS would apply its rubber-band bounce and the window would give away that
-there is a web view inside.
-
-### Estimates
-
-`Estimate` in `lib.rs` computes seconds for the three possible paths (copy,
-VideoToolbox, x264) and the interface picks by plan and chosen encoder. The
-constants are approximate and documented next to where they came from:
-`REMUX_MB_S` from timing a real remux, and the encoding ones measured on this
-machine over 60 s of real 1080p footage — 7.7x realtime for VideoToolbox, 2.2x
-for libx264. They are set slightly lower than measured, because complex content
-runs slower and overestimating is the safe error. The real ETA comes from ffmpeg
-as soon as it starts.
-
-### Light and dark
-
-Follows the macOS appearance. A three-way switch at the top right — light, dark,
-match system — with lucide icons; the choice is stored in `localStorage`. "Match
-system" sets no attribute and lets `prefers-color-scheme` decide.
-
-Values live once, in `--d-*` (dark) and `--l-*` (light); the blocks below only
-remap them. Changing a colour means touching one place.
-
-The dark background is `#171d21`, not black. The light one is `#f6f8f9`, close
-to paper: against a background that light, white cards barely contrast, so
-structure is carried by borders (`--rule-lo`) rather than fills.
-
-Contrast measured against each theme's background: ink at 15.0:1 / 9.1:1 / 5.7:1
-in dark and 17.4:1 / 8.3:1 / 5.7:1 in light; the four decision colours never
-drop below 5.1:1. Everything clears WCAG AA, which is the floor to hold if you
-touch the palette.
-
-## ffmpeg ships inside the app
-
-`src-tauri/binaries/` holds static `ffmpeg` and `ffprobe` for
-`aarch64-apple-darwin`. Tauri declares them in `bundle.externalBin` and packs
-them into the `.app`, so the target machine needs nothing installed.
-
-They link only against system frameworks — verifiable with `otool -L`. Homebrew's
-ffmpeg will **not** do: it points at dylibs under `/opt/homebrew`.
-
-Adding Intel support means placing the `-x86_64-apple-darwin` binaries alongside.
-
-> **Licence.** `build-ffmpeg.sh` produces a **GPL v2+** build, which can be
-> distributed as long as the licence and the corresponding source come with it.
-> `fetch-ffmpeg.sh` downloads a `--enable-nonfree` build that cannot. See
-> [THIRD-PARTY.md](THIRD-PARTY.md).
-
-## Layout
-
-```
-src/main.js          UI: drag & drop, summary, tabs, progress
-src/tracks.js        track list rendering and codec names
-src-tauri/src/lib.rs analyses, decides, builds the ffmpeg args and runs them
-```
-
-`lib.rs` comes in three blocks: the compatibility constants up top (`OK_PIX`,
-`OK_PROFILES`, `MAX_LEVEL`, `OK_AUDIO`, `TEXT_SUBS`) — which is what you touch to
-tune the profile for a particular TV — then `build_plan()` with the per-track
-decision, and `run_ffmpeg()`, which turns `-progress pipe:1` into events for the
-progress bar.
-
-`analyze` and `convert` both call ffprobe. That is deliberate: the plan is
-recomputed at conversion time rather than trusting whatever the frontend sends.
-
-## Output
-
-Next to the original, keeping the name and swapping the extension:
-`Movie.mkv` → `Movie.mp4`. No suffix, because the extension already differs and
-a clean name is what the TV puts on screen — subtitles follow it, so
-`Movie.srt` too.
-
-The name is editable in the summary. Whatever is typed gets sanitised in Rust
-before it is used: only the file name survives, so no directory part can escape
-the source folder, and the `.mp4` extension is forced. An empty field falls back
-to the proposed name.
-
-Nothing is ever overwritten. If the target already exists — which is what
-happens when converting an `.mp4` in place — it becomes `Movie (2).mp4`.
+- [NOTES.md](NOTES.md) — how it decides, and why the interface looks the way it
+  does
+- [THIRD-PARTY.md](THIRD-PARTY.md) — ffmpeg, x264, licences
+- [CLAUDE.md](CLAUDE.md) — notes for an AI agent working on the code
 
 ## Credits
 
 Built by [emmgfx](https://github.com/emmgfx). MIT licensed — see
-[LICENSE](LICENSE), and [THIRD-PARTY.md](THIRD-PARTY.md) for the components it
-leans on.
+[LICENSE](LICENSE).
