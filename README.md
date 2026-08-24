@@ -194,7 +194,15 @@ recomputed at conversion time rather than trusting whatever the frontend sends.
 
 ## Output
 
-Next to the original, as `name.tv.mp4`. It never overwrites an existing file: if
-one is there already, it uses `name.tv (2).mp4`. A trailing `.tv` in the source
-name is stripped first, so converting the app's own output does not produce
-`name.tv.tv.mp4`.
+Next to the original, keeping the name and swapping the extension:
+`Movie.mkv` → `Movie.mp4`. No suffix, because the extension already differs and
+a clean name is what the TV puts on screen — subtitles follow it, so
+`Movie.srt` too.
+
+The name is editable in the summary. Whatever is typed gets sanitised in Rust
+before it is used: only the file name survives, so no directory part can escape
+the source folder, and the `.mp4` extension is forced. An empty field falls back
+to the proposed name.
+
+Nothing is ever overwritten. If the target already exists — which is what
+happens when converting an `.mp4` in place — it becomes `Movie (2).mp4`.

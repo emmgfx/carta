@@ -11,6 +11,7 @@ const VIDEO_EXT = ["mkv", "mp4", "avi", "mov", "m4v", "ts", "webm", "wmv", "flv"
 let analysis = null;
 let running = false;
 let output = null;
+let customName = null;
 
 // ---------- appearance ----------
 
@@ -77,6 +78,7 @@ const isVideoFile = (p) => VIDEO_EXT.includes(p.split(".").pop().toLowerCase());
 
 async function analyze(path) {
   if (running) return;
+  if (analysis?.path !== path) customName = null;
   if (!isVideoFile(path)) {
     logLine(`Skipped, not a video: ${path}`);
     return;
@@ -149,7 +151,9 @@ function renderRoute(a) {
   setName($("nameFrom"), a.filename);
   $("metaFrom").textContent = `${fmtShort(a.duration)} · ${fmtSize(a.size)}`;
 
-  setName($("nameTo"), a.output_name);
+  // A hand-typed name survives a re-analysis: toggling the cap re-runs the plan
+  // and would otherwise wipe what the user just wrote.
+  $("nameTo").value = customName ?? a.output_name;
   // Keeps ffmpeg's own option name; the hover explains what it means.
   $("metaTo").textContent = `${fmtShort(a.duration)} · ≈ ${fmtSize(a.output_size)} · `;
   const hint = document.createElement("span");
@@ -243,6 +247,7 @@ async function convert() {
       path: analysis.path,
       encoder: $("encoder").value,
       fat32: $("fat32").checked,
+      name: customName,
     });
     showResult(true, out);
   } catch (e) {
@@ -291,6 +296,7 @@ function resetAction() {
 
 function reset() {
   analysis = null;
+  customName = null;
   resetAction();
   document.body.classList.remove("done");
   $("report").classList.add("hidden");
@@ -344,6 +350,13 @@ $("encoder").onchange = () => showSpeed(analysis);
 /* The cap changes the whole plan (it can force a re-encode), so repainting is
    not enough: the analysis has to be asked for again. */
 $("fat32").onchange = () => { if (analysis) analyze(analysis.path); };
+
+/* Sanitising and the no-overwrite rule live in Rust; here we only remember what
+   was typed, and fall back to the proposed name when the field is left empty. */
+$("nameTo").oninput = () => {
+  const typed = $("nameTo").value.trim();
+  customName = typed || null;
+};
 $("convert").onclick = () => (output ? revealItemInDir(output) : convert());
 $("reset").onclick = reset;
 $("cancel").onclick = () => invoke("cancel").catch(() => {});

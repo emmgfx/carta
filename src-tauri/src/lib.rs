@@ -183,10 +183,19 @@ fn num(v: &Value, key: &str) -> Option<f64> {
     }
 }
 
-/// Strips a trailing `.tv`: converting something this app already produced must
-/// not yield `movie.tv.tv.mp4`.
-fn base_name(stem: &str) -> &str {
-    stem.strip_suffix(".tv").unwrap_or(stem)
+/// Cleans a hand-typed name: keeps only the file name, so no directory part can
+/// escape the source folder, and forces the .mp4 extension.
+fn safe_output_name(typed: &str) -> Option<String> {
+    let name = Path::new(typed.trim()).file_name()?.to_str()?.trim();
+    if name.is_empty() || name == "." || name == ".." {
+        return None;
+    }
+    let lower = name.to_lowercase();
+    Some(if lower.ends_with(".mp4") {
+        name.to_string()
+    } else {
+        format!("{name}.mp4")
+    })
 }
 
 /// Size in readable units, for messages.
@@ -200,14 +209,27 @@ fn human_size(bytes: f64) -> String {
 }
 
 /// Output name next to the original, never overwriting anything that exists.
-fn output_for(input: &Path) -> PathBuf {
-    let raw = input.file_stem().and_then(|s| s.to_str()).unwrap_or("video");
-    let stem = base_name(raw);
+/// No suffix by default: coming from .mkv the extension already differs, so the
+/// TV shows a clean title. A typed name takes over, sanitised first.
+fn output_for(input: &Path, typed: Option<&str>) -> PathBuf {
     let dir = input.parent().unwrap_or(Path::new("."));
-    let mut candidate = dir.join(format!("{stem}.tv.mp4"));
+    let chosen = typed
+        .and_then(safe_output_name)
+        .unwrap_or_else(|| {
+            let stem = input.file_stem().and_then(|s| s.to_str()).unwrap_or("video");
+            format!("{stem}.mp4")
+        });
+
+    let stem = Path::new(&chosen)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("video")
+        .to_string();
+
+    let mut candidate = dir.join(&chosen);
     let mut n = 2;
     while candidate.exists() {
-        candidate = dir.join(format!("{stem}.tv ({n}).mp4"));
+        candidate = dir.join(format!("{stem} ({n}).mp4"));
         n += 1;
     }
     candidate
@@ -215,7 +237,7 @@ fn output_for(input: &Path) -> PathBuf {
 
 // ---------------------------------------------------------------- decisions
 
-fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
+fn build_plan(probe: &Value, path: &str, limit: f64, typed: Option<&str>) -> Result<Plan, String> {
     let input = Path::new(path);
     let format = probe.get("format").ok_or("the file carries no metadata")?;
     let duration = num(format, "duration").unwrap_or(0.0);
@@ -544,7 +566,7 @@ fn build_plan(probe: &Value, path: &str, limit: f64) -> Result<Plan, String> {
         x264: duration * scale / X264_SPEED + fixed,
     };
 
-    let out = output_for(input);
+    let out = output_for(input, typed);
     let analysis = Analysis {
         path: path.to_string(),
         filename: input
@@ -758,7 +780,7 @@ fn clean_srt(target: &Path) -> Result<(), String> {
 #[tauri::command]
 async fn analyze(app: AppHandle, path: String, fat32: bool) -> Result<Analysis, String> {
     let probe = ffprobe(&app, &path).await?;
-    Ok(build_plan(&probe, &path, limit_of(fat32))?.analysis)
+    Ok(build_plan(&probe, &path, limit_of(fat32), None)?.analysis)
 }
 
 /// FAT32 is the only limit offered; other filesystems do not have one.
@@ -773,9 +795,10 @@ async fn convert(
     path: String,
     encoder: String,
     fat32: bool,
+    name: Option<String>,
 ) -> Result<String, String> {
     let probe = ffprobe(&app, &path).await?;
-    let plan = build_plan(&probe, &path, limit_of(fat32))?;
+    let plan = build_plan(&probe, &path, limit_of(fat32), name.as_deref())?;
     let total = plan.analysis.duration;
     let out = plan.analysis.output_path.clone();
 
@@ -929,17 +952,25 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{base_name, strip_styling};
+    use super::{safe_output_name, strip_styling};
 
     #[test]
-    fn does_not_duplicate_the_tv_suffix() {
-        assert_eq!(base_name("Toy Story 5 (2026).tv"), "Toy Story 5 (2026)");
+    fn a_typed_name_cannot_escape_the_folder() {
+        assert_eq!(safe_output_name("../../etc/passwd").unwrap(), "passwd.mp4");
+        assert_eq!(safe_output_name("/tmp/evil.mp4").unwrap(), "evil.mp4");
     }
 
     #[test]
-    fn leaves_ordinary_names_alone() {
-        assert_eq!(base_name("Toy Story 5 (2026)"), "Toy Story 5 (2026)");
-        assert_eq!(base_name("serie.1x01.1080p"), "serie.1x01.1080p");
+    fn a_typed_name_always_ends_in_mp4() {
+        assert_eq!(safe_output_name("Toy Story 5").unwrap(), "Toy Story 5.mp4");
+        assert_eq!(safe_output_name("Toy Story 5.mp4").unwrap(), "Toy Story 5.mp4");
+        assert_eq!(safe_output_name("Toy Story 5.MP4").unwrap(), "Toy Story 5.MP4");
+    }
+
+    #[test]
+    fn an_empty_typed_name_falls_back() {
+        assert!(safe_output_name("   ").is_none());
+        assert!(safe_output_name("..").is_none());
     }
 
     #[test]
