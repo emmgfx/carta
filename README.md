@@ -76,7 +76,7 @@ flagged.
 
 - [NOTES.md](NOTES.md) — how it decides, and why the interface looks the way it
   does
-- [THIRD-PARTY.md](THIRD-PARTY.md) — ffmpeg, x264, licences
+- [THIRD-PARTY.md](THIRD-PARTY.md) — ffmpeg, x264, licenses
 - [CLAUDE.md](CLAUDE.md) — notes for an AI agent working on the code
 
 ## Credits

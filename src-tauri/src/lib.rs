@@ -928,7 +928,7 @@ async fn convert(
 }
 
 /// Path to the bundled notice, so the app can open what the GPL requires it to
-/// hand over: the licence text and the route to the corresponding source.
+/// hand over: the license text and the route to the corresponding source.
 #[tauri::command]
 fn notice_path(app: AppHandle) -> Result<String, String> {
     app.path()

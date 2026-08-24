@@ -29,7 +29,7 @@ Needs `pkg-config`, which is how ffmpeg's configure locates libx264:
 Command Line Tools.
 
 **Shipping a binary built this way means complying with the GPL**: include the
-licence text, and make the corresponding source available. Since the build is
+license text, and make the corresponding source available. Since the build is
 unmodified, pointing at the official ffmpeg 8.1.2 tarball plus this script,
 which records the exact version and configure line, covers it. Carta's own code
 stays MIT: running a program as a separate process is aggregation, not a
@@ -62,7 +62,7 @@ ffmpeg: <https://ffmpeg.org> · <https://ffmpeg.org/legal.html>
 
 ## Icons
 
-[lucide](https://lucide.dev), ISC licence. The app uses the paths for
+[lucide](https://lucide.dev), ISC license. The app uses the paths for
 `tv-minimal` (app and window icon), `film`, `audio-lines`, `captions`,
 `chevron-right`, `sun`, `moon` and `monitor`, inlined as SVG in the source.
 

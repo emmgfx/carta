@@ -24,13 +24,16 @@ const AUTHOR_URL = "https://github.com/emmgfx";
 $("source").onclick = () => openUrl(SOURCE_URL);
 $("author").onclick = () => openUrl(AUTHOR_URL);
 /* ffmpeg and x264 are GPL, so whoever gets a copy has to be able to reach the
-   licence and the source. Buried in the bundle it technically travels with the
+   license and the source. Buried in the bundle it technically travels with the
    app; from here it is actually findable. */
 $("licenses").onclick = async () => {
+  const path = await invoke("notice_path");
+  // Opening it in a text editor is the friendly outcome; revealing it in Finder
+  // is the one that cannot fail, since that permission needs no path scope.
   try {
-    await openPath(await invoke("notice_path"));
-  } catch (e) {
-    logLine(`Could not open the notice: ${e}`);
+    await openPath(path);
+  } catch {
+    await revealItemInDir(path);
   }
 };
 getVersion().then((v) => { $("version").textContent = `Carta ${v} ·`; });
